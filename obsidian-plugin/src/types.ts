@@ -1,0 +1,62 @@
+import type { StoredCompanion } from './lib/buddy/types';
+
+export type BuddyFrequency = 'quiet' | 'normal' | 'chatty';
+export type BuddyMood = 'quiet' | 'curious' | 'pleased' | 'concerned' | 'sleepy';
+export type BuddySessionMode =
+  | 'idle'
+  | 'starting'
+  | 'flowing'
+  | 'revising'
+  | 'stuck'
+  | 'returning';
+export type BuddyEventType =
+  | 'session_started'
+  | 'note_opened'
+  | 'new_note_created'
+  | 'writing_burst'
+  | 'steady_session'
+  | 'revision_spike'
+  | 'long_pause'
+  | 'returned_after_pause'
+  | 'daily_note_opened'
+  | 'direct_question'
+  | 'pet'
+  | 'manual_note_help_request';
+
+export type BuddyEvent = {
+  type: BuddyEventType;
+  at: number;
+  notePath?: string;
+  noteTitle?: string;
+  excerpt?: string;
+  contextKind?: 'selection' | 'note_excerpt' | 'full_note';
+  wordCount?: number;
+  message?: string;
+};
+
+export type BuddyPluginSettings = {
+  openAIApiKey: string;
+  model: string;
+  ambientEnabled: boolean;
+  frequency: BuddyFrequency;
+  includeCurrentNoteInDirectReplies: boolean;
+  enableWriteActions: boolean;
+};
+
+export type BuddyPluginData = {
+  vaultSeed?: string;
+  storedCompanion?: StoredCompanion;
+  muted: boolean;
+  lastReactionAt?: number;
+  recentEvents: BuddyEvent[];
+  moodState?: {
+    mode: BuddyMood;
+    updatedAt: number;
+  };
+  sessionState?: {
+    mode: BuddySessionMode;
+    updatedAt: number;
+    notePath?: string;
+  };
+  settings: BuddyPluginSettings;
+};

@@ -1,0 +1,9 @@
+{
+  "id": "bestest-buddy",
+  "name": "Bestest Buddy",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A vault-scoped writing companion that lives in an Obsidian sidebar.",
+  "author": "Nathan King",
+  "isDesktopOnly": false
+}
