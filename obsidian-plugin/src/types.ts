@@ -43,6 +43,7 @@ export type BuddyPluginSettings = {
   model: string;
   ambientEnabled: boolean;
   frequency: BuddyFrequency;
+  burstThreshold: number;
   includeCurrentNoteInDirectReplies: boolean;
   enableWriteActions: boolean;
 };
