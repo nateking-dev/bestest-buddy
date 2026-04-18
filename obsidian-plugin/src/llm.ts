@@ -430,7 +430,11 @@ export async function generateReaction(
         required: ['reaction'],
       },
       instructions:
-        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${snarkGuidance(plugin.data.settings.snarkLevel)} ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
+        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${
+          params.directMessage
+            ? 'This is a direct user message. Reply to it directly in character. Do not treat ambient “speak rarely” or “say nothing” guidance as applying here.'
+            : snarkGuidance(plugin.data.settings.snarkLevel)
+        } ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
       input: [
         `Buddy: name=${params.companion.name} | personality=${params.companion.personality} | ${identitySummary(params.companion)}`,
         `Event: ${params.event.type}`,
