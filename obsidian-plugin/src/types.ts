@@ -47,6 +47,7 @@ export type BuddyPluginSettings = {
   includeCurrentNoteInDirectReplies: boolean;
   enableWriteActions: boolean;
   minimalMode: boolean;
+  snarkLevel: number;
 };
 
 export type BuddyPluginData = {
