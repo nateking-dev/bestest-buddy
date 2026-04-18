@@ -127,7 +127,7 @@ function sanitizeReaction(text: string): string {
   return `${compact.slice(0, 157).trimEnd()}…`;
 }
 
-async function callResponsesApi<T extends Record<string, unknown>>(
+async function callOpenAI<T extends Record<string, unknown>>(
   plugin: BestestBuddyPlugin,
   params: {
     schemaName: string;
@@ -135,17 +135,12 @@ async function callResponsesApi<T extends Record<string, unknown>>(
     instructions: string;
     input: string;
   },
-): Promise<T | null> {
-  const apiKey = plugin.data.settings.openAIApiKey.trim();
-  if (!apiKey) {
-    return null;
-  }
-
+): Promise<T> {
   const response = await requestUrl({
     url: 'https://api.openai.com/v1/responses',
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${plugin.data.settings.openAIApiKey.trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -167,16 +162,12 @@ async function callResponsesApi<T extends Record<string, unknown>>(
     error?: { message?: string };
     output?: Array<{
       type?: string;
-      content?: Array<{
-        type?: string;
-        text?: string;
-      }>;
+      content?: Array<{ type?: string; text?: string }>;
     }>;
   };
 
   if (response.status >= 400) {
-    const message = json.error?.message ?? `OpenAI request failed with status ${response.status}`;
-    throw new Error(message);
+    throw new Error(json.error?.message ?? `OpenAI request failed with status ${response.status}`);
   }
 
   const outputText = json.output
@@ -191,6 +182,76 @@ async function callResponsesApi<T extends Record<string, unknown>>(
   }
 
   return JSON.parse(outputText) as T;
+}
+
+async function callClaude<T extends Record<string, unknown>>(
+  plugin: BestestBuddyPlugin,
+  params: {
+    schemaName: string;
+    schema: Record<string, unknown>;
+    instructions: string;
+    input: string;
+  },
+): Promise<T> {
+  const response = await requestUrl({
+    url: 'https://api.anthropic.com/v1/messages',
+    method: 'POST',
+    headers: {
+      'x-api-key': plugin.data.settings.claudeApiKey.trim(),
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: plugin.data.settings.model,
+      max_tokens: 1024,
+      system: params.instructions,
+      messages: [{ role: 'user', content: params.input }],
+      tools: [
+        {
+          name: params.schemaName,
+          description: '',
+          input_schema: params.schema,
+        },
+      ],
+      tool_choice: { type: 'any' },
+    }),
+  });
+
+  const json = response.json as {
+    error?: { message?: string };
+    content?: Array<{ type?: string; input?: unknown }>;
+  };
+
+  if (response.status >= 400) {
+    throw new Error(json.error?.message ?? `Claude request failed with status ${response.status}`);
+  }
+
+  const toolUse = json.content?.find((block) => block.type === 'tool_use');
+  if (!toolUse?.input) {
+    throw new Error('Claude response did not include tool use output.');
+  }
+
+  return toolUse.input as T;
+}
+
+async function callLLM<T extends Record<string, unknown>>(
+  plugin: BestestBuddyPlugin,
+  params: {
+    schemaName: string;
+    schema: Record<string, unknown>;
+    instructions: string;
+    input: string;
+  },
+): Promise<T | null> {
+  const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
+
+  if (provider === 'claude') {
+    if (!claudeApiKey.trim()) return null;
+    return callClaude<T>(plugin, params);
+  }
+
+  if (!openAIApiKey.trim()) return null;
+  return callOpenAI<T>(plugin, params);
 }
 
 function fallbackSoul(bones: CompanionBones): { name: string; personality: string } {
@@ -288,7 +349,7 @@ export async function hatchSoul(
   bones: CompanionBones,
 ): Promise<{ name: string; personality: string }> {
   try {
-    const result = await callResponsesApi<{ name: string; personality: string }>(plugin, {
+    const result = await callLLM<{ name: string; personality: string }>(plugin, {
       schemaName: 'obsidian_buddy_hatch',
       schema: {
         type: 'object',
@@ -339,7 +400,7 @@ export async function generateReaction(
             .join(', ')
         : 'none';
 
-    const result = await callResponsesApi<{ reaction: string }>(plugin, {
+    const result = await callLLM<{ reaction: string }>(plugin, {
       schemaName: 'obsidian_buddy_reaction',
       schema: {
         type: 'object',
