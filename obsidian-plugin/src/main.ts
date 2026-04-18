@@ -647,7 +647,7 @@ export default class BestestBuddyPlugin extends Plugin {
     return PET_HEARTS[elapsedTicks % PET_HEARTS.length] ?? PET_HEARTS[0];
   }
 
-  private isPetting(now = Date.now()): boolean {
+  isPetting(now = Date.now()): boolean {
     if (this.petStartedAt === null) {
       return false;
     }

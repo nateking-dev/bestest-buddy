@@ -18,6 +18,7 @@ export class BuddyView extends ItemView {
   private draft = '';
   private shellEl: HTMLElement | null = null;
   private stageEl: HTMLElement | null = null;
+  private rubStartedAt: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: BestestBuddyPlugin) {
     super(leaf);
@@ -98,6 +99,11 @@ export class BuddyView extends ItemView {
   }
 
   private renderStageInto(stage: HTMLElement, companion: Companion | null): void {
+    if (this.rubStartedAt !== null && !this.plugin.isPetting() && Date.now() - this.rubStartedAt >= 1500) {
+      this.rubStartedAt = null;
+      void this.plugin.petBuddy();
+    }
+
     stage.empty();
     const moodClass = this.plugin.data.moodState?.mode ? `is-${this.plugin.data.moodState.mode}` : '';
     const sessionClass = this.plugin.data.sessionState?.mode
@@ -134,6 +140,14 @@ export class BuddyView extends ItemView {
     }
 
     const spriteEl = stage.createEl('pre', { cls: 'bestest-buddy-sprite' });
+    spriteEl.addEventListener('mouseenter', () => {
+      if (this.rubStartedAt === null && !this.plugin.isPetting() && !this.plugin.busy) {
+        this.rubStartedAt = Date.now();
+      }
+    });
+    spriteEl.addEventListener('mouseleave', () => {
+      this.rubStartedAt = null;
+    });
     spriteEl.style.color = RARITY_COLORS[companion.rarity];
     const spriteLines = renderSprite(companion, this.plugin.currentSpriteFrame);
     spriteEl.setText(
