@@ -13,4 +13,5 @@ export const DEFAULT_SETTINGS: BuddyPluginSettings = {
   burstThreshold: 50,
   includeCurrentNoteInDirectReplies: true,
   enableWriteActions: false,
+  minimalMode: false,
 };

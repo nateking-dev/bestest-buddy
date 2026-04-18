@@ -128,5 +128,16 @@ export class BuddySettingTab extends PluginSettingTab {
           await this.plugin.store.save();
         }),
       );
+
+    new Setting(containerEl)
+      .setName('Minimal mode')
+      .setDesc('Show only the sprite in the sidebar panel.')
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.data.settings.minimalMode).onChange(async (value) => {
+          this.plugin.data.settings.minimalMode = value;
+          await this.plugin.store.save();
+          this.plugin.refreshViews();
+        }),
+      );
   }
 }
