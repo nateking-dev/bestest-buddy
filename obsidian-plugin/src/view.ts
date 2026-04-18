@@ -141,7 +141,7 @@ export class BuddyView extends ItemView {
 
     const spriteEl = stage.createEl('pre', { cls: 'bestest-buddy-sprite' });
     spriteEl.addEventListener('mouseenter', () => {
-      if (this.rubStartedAt === null && !this.plugin.isPetting()) {
+      if (this.rubStartedAt === null && !this.plugin.isPetting() && !this.plugin.busy) {
         this.rubStartedAt = Date.now();
       }
     });
