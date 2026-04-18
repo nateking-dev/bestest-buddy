@@ -14,8 +14,22 @@ export class BuddySettingTab extends PluginSettingTab {
     containerEl.createEl('h2', { text: 'Bestest Buddy' });
 
     new Setting(containerEl)
+      .setName('LLM provider')
+      .setDesc('Which API to use for hatch and buddy reactions.')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('openai', 'OpenAI')
+          .addOption('claude', 'Claude (Anthropic)')
+          .setValue(this.plugin.data.settings.provider)
+          .onChange(async (value) => {
+            this.plugin.data.settings.provider = value as typeof this.plugin.data.settings.provider;
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('OpenAI API key')
-      .setDesc('Stored in plugin settings for direct and ambient buddy reactions.')
+      .setDesc('Used when provider is set to OpenAI.')
       .addText((text) =>
         text
           .setPlaceholder('sk-...')
@@ -27,8 +41,21 @@ export class BuddySettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Claude API key')
+      .setDesc('Used when provider is set to Claude (Anthropic).')
+      .addText((text) =>
+        text
+          .setPlaceholder('sk-ant-...')
+          .setValue(this.plugin.data.settings.claudeApiKey)
+          .onChange(async (value) => {
+            this.plugin.data.settings.claudeApiKey = value.trim();
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('Model')
-      .setDesc('Responses API model used for hatch and direct replies.')
+      .setDesc('Model name for the selected provider (e.g. gpt-4.1-mini or claude-haiku-4-5-20251001).')
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.model)
