@@ -269,6 +269,7 @@ export default class BestestBuddyPlugin extends Plugin {
   lastError: string | null = null;
   bubbleShownAt: number | null = null;
   petStartedAt: number | null = null;
+  ambientReactionStartedAt: number | null = null;
 
   private spriteTimer: number | null = null;
   private bubbleTimer: number | null = null;
@@ -567,12 +568,18 @@ export default class BestestBuddyPlugin extends Plugin {
     await this.store.appendEvent(event);
 
     if (!force) {
+      if (this.busy || this.ambientReactionStartedAt !== null) {
+        return;
+      }
       if (this.data.muted || !this.data.settings.ambientEnabled) {
         return;
       }
       const sessionMode = currentSessionMode(this);
       const sessionPatterns = detectSessionPatterns(this.store.getRecentEvents(12));
-      const lastReactionAt = this.data.lastReactionAt ?? 0;
+      const lastReactionAt = Math.max(
+        this.data.lastReactionAt ?? 0,
+        this.ambientReactionStartedAt ?? 0,
+      );
       if (Date.now() - lastReactionAt < cooldownFor(this.data.settings.frequency, sessionMode, this.data.settings.snarkLevel)) {
         return;
       }
@@ -592,6 +599,8 @@ export default class BestestBuddyPlugin extends Plugin {
       if (!shouldReactAmbiently(event, this.data.settings.frequency, sessionMode, sessionPatterns, this.data.settings.snarkLevel)) {
         return;
       }
+
+      this.ambientReactionStartedAt = Date.now();
     }
 
     const noteContext = event.notePath && this.data.settings.includeCurrentNoteInDirectReplies
@@ -621,6 +630,9 @@ export default class BestestBuddyPlugin extends Plugin {
       this.lastError = 'Buddy reaction failed.';
       this.refreshViews();
     } finally {
+      if (!force) {
+        this.ambientReactionStartedAt = null;
+      }
       this.busy = false;
       this.refreshViews();
     }
