@@ -1,9 +1,9 @@
 import { Notice } from 'obsidian';
 import { createStableUserSeed, mergeCompanion, roll } from './lib/buddy/companion';
-import type { Companion, StoredCompanion } from './lib/buddy/types';
+import type { Companion, Eye, Hat, Species, StatName, StoredCompanion } from './lib/buddy/types';
 import { DEFAULT_SETTINGS, MAX_RECENT_EVENTS } from './constants';
 import type BestestBuddyPlugin from './main';
-import type { BuddyEvent, BuddyMood, BuddyPluginData, BuddySessionMode } from './types';
+import type { BuddyEvent, BuddyMood, BuddyPluginData, BuddySessionMode, CompanionOverrides } from './types';
 
 export class BuddyStore {
   constructor(private readonly plugin: BestestBuddyPlugin) {}
@@ -13,6 +13,7 @@ export class BuddyStore {
     const data: BuddyPluginData = {
       vaultSeed: raw?.vaultSeed,
       storedCompanion: raw?.storedCompanion,
+      companionOverrides: raw?.companionOverrides,
       muted: raw?.muted ?? false,
       lastReactionAt: raw?.lastReactionAt,
       recentEvents: raw?.recentEvents ?? [],
@@ -48,7 +49,19 @@ export class BuddyStore {
     if (!seed || !stored) {
       return null;
     }
-    return mergeCompanion(seed, stored);
+    const base = mergeCompanion(seed, stored);
+    const overrides = this.plugin.data.companionOverrides;
+    if (!overrides) {
+      return base;
+    }
+    return {
+      ...base,
+      species: overrides.species ?? base.species,
+      eye: overrides.eye ?? base.eye,
+      hat: overrides.hat ?? base.hat,
+      shiny: overrides.shiny ?? base.shiny,
+      stats: overrides.stats ? { ...base.stats, ...overrides.stats } : base.stats,
+    };
   }
 
   async hatchCompanion(stored: StoredCompanion): Promise<Companion> {
@@ -65,12 +78,47 @@ export class BuddyStore {
   async resetCompanion(): Promise<void> {
     this.plugin.data.vaultSeed = createStableUserSeed();
     this.plugin.data.storedCompanion = undefined;
+    this.plugin.data.companionOverrides = undefined;
     this.plugin.data.lastReactionAt = undefined;
     this.plugin.data.recentEvents = [];
     this.plugin.data.moodState = undefined;
     this.plugin.data.sessionState = undefined;
     await this.save();
     new Notice('Buddy reset for this vault.');
+  }
+
+  async setOverride<K extends keyof Omit<CompanionOverrides, 'stats'>>(
+    key: K,
+    value: Species | Eye | Hat | boolean,
+  ): Promise<void> {
+    this.plugin.data.companionOverrides = {
+      ...this.plugin.data.companionOverrides,
+      [key]: value,
+    };
+    await this.save();
+  }
+
+  async setStatOverrides(stats: Partial<Record<StatName, number>>): Promise<void> {
+    this.plugin.data.companionOverrides = {
+      ...this.plugin.data.companionOverrides,
+      stats: { ...this.plugin.data.companionOverrides?.stats, ...stats },
+    };
+    await this.save();
+  }
+
+  async clearStatOverrides(): Promise<void> {
+    if (this.plugin.data.companionOverrides) {
+      this.plugin.data.companionOverrides = {
+        ...this.plugin.data.companionOverrides,
+        stats: undefined,
+      };
+    }
+    await this.save();
+  }
+
+  async clearAppearanceOverrides(): Promise<void> {
+    this.plugin.data.companionOverrides = undefined;
+    await this.save();
   }
 
   async setMuted(muted: boolean): Promise<void> {

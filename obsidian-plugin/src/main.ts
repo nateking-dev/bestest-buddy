@@ -12,6 +12,7 @@ import { BuddyStore } from './store';
 import { spriteFrameCount } from './lib/buddy/sprites';
 import type { BuddyEvent, BuddyPluginData, BuddyMood, BuddySessionMode } from './types';
 import { BuddyView } from './view';
+import { EyePickerModal, HatPickerModal, SpeciesPickerModal, StatsModal } from './customize';
 
 const SPRITE_TICK_MS = 440;
 const BUBBLE_SHOW_MS = 10_000;
@@ -331,6 +332,59 @@ export default class BestestBuddyPlugin extends Plugin {
         await this.store.resetCompanion();
         this.currentBubble = null;
         this.refreshViews();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-species',
+      name: 'Customize: choose species',
+      callback: () => {
+        new SpeciesPickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-eye',
+      name: 'Customize: choose eye style',
+      callback: () => {
+        new EyePickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-hat',
+      name: 'Customize: choose hat',
+      callback: () => {
+        new HatPickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-stats',
+      name: 'Customize: edit stats',
+      callback: () => {
+        new StatsModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-toggle-shiny',
+      name: 'Customize: toggle shiny',
+      callback: async () => {
+        const current = this.store.getCompanion()?.shiny ?? false;
+        await this.store.setOverride('shiny', !current);
+        this.refreshViews();
+        new Notice(`Shiny: ${!current ? 'on' : 'off'}`);
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-reset-appearance',
+      name: 'Customize: reset appearance to generated',
+      callback: async () => {
+        await this.store.clearAppearanceOverrides();
+        this.refreshViews();
+        new Notice('Appearance reset to generated values.');
       },
     });
 
