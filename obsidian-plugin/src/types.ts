@@ -1,4 +1,4 @@
-import type { StoredCompanion } from './lib/buddy/types';
+import type { Eye, Hat, Species, StatName, StoredCompanion } from './lib/buddy/types';
 
 export type BuddyFrequency = 'quiet' | 'normal' | 'chatty';
 export type BuddyMood = 'quiet' | 'curious' | 'pleased' | 'concerned' | 'sleepy';
@@ -50,9 +50,18 @@ export type BuddyPluginSettings = {
   snarkLevel: number;
 };
 
+export type CompanionOverrides = {
+  species?: Species;
+  eye?: Eye;
+  hat?: Hat;
+  shiny?: boolean;
+  stats?: Partial<Record<StatName, number>>;
+};
+
 export type BuddyPluginData = {
   vaultSeed?: string;
   storedCompanion?: StoredCompanion;
+  companionOverrides?: CompanionOverrides;
   muted: boolean;
   lastReactionAt?: number;
   recentEvents: BuddyEvent[];
