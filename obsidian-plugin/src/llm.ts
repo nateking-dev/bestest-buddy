@@ -287,6 +287,25 @@ function fallbackSoul(bones: CompanionBones): { name: string; personality: strin
   };
 }
 
+function snarkGuidance(snarkLevel: number): string {
+  if (snarkLevel <= 10) {
+    return 'Speak very rarely and only when you have something genuinely comforting to say. Be soft, warm, and never critical. If in doubt, say nothing.';
+  }
+  if (snarkLevel <= 30) {
+    return 'Be gentle and encouraging. Light observations only. Nothing sharp or pointed.';
+  }
+  if (snarkLevel <= 50) {
+    return 'Stay balanced — warm but with occasional quiet wit. Nothing too cutting.';
+  }
+  if (snarkLevel <= 70) {
+    return 'Feel free to be dry and a little pointed. Jokes and puns are welcome. Don\'t pull punches when something is worth noting.';
+  }
+  if (snarkLevel <= 90) {
+    return 'Be noticeably snarky. Make jokes, puns, and sharp observations. Comment liberally and with edge. Cruel-but-funny is fair game.';
+  }
+  return 'Go full snark, no restraint. Comment on everything with biting wit, puns, roasts, and merciless-but-funny observations. You have explicit permission to be relentless. The user asked for this.';
+}
+
 function sessionGuidance(sessionMode: string | undefined): string {
   switch (sessionMode) {
     case 'flowing':
@@ -411,7 +430,11 @@ export async function generateReaction(
         required: ['reaction'],
       },
       instructions:
-        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
+        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${
+          params.directMessage
+            ? 'This is a direct user message. Reply to it directly in character. Do not treat ambient “speak rarely” or “say nothing” guidance as applying here.'
+            : snarkGuidance(plugin.data.settings.snarkLevel)
+        } ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
       input: [
         `Buddy: name=${params.companion.name} | personality=${params.companion.personality} | ${identitySummary(params.companion)}`,
         `Event: ${params.event.type}`,

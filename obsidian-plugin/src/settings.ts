@@ -139,5 +139,31 @@ export class BuddySettingTab extends PluginSettingTab {
           this.plugin.refreshViews();
         }),
       );
+
+    let snarkWarning: HTMLParagraphElement;
+
+    new Setting(containerEl)
+      .setName('Snark level')
+      .setDesc('Controls how often and how sharply buddy comments. 0 = rare and gentle, 100 = constant and merciless.')
+      .addSlider((slider) =>
+        slider
+          .setLimits(0, 100, 1)
+          .setValue(this.plugin.data.settings.snarkLevel)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.data.settings.snarkLevel = value;
+            snarkWarning.style.display = value > 90 ? 'block' : 'none';
+            await this.plugin.store.save();
+          }),
+      );
+
+    snarkWarning = containerEl.createEl('p', {
+      text: 'Warning: snark level above 90 may use significantly more tokens.',
+    });
+    snarkWarning.style.color = 'var(--color-red)';
+    snarkWarning.style.fontSize = '0.85em';
+    snarkWarning.style.marginTop = '4px';
+    snarkWarning.style.display =
+      this.plugin.data.settings.snarkLevel > 90 ? 'block' : 'none';
   }
 }

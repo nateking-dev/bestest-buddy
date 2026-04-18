@@ -86,12 +86,25 @@ function nextSessionForEvent(
   return transitions[event.type] ?? currentSession;
 }
 
+function snarkFrequencyMultiplier(snarkLevel: number): number {
+  // 0 → 0.05 (almost silent), 50 → 1.0 (normal), 100 → 4.0 (relentless)
+  return snarkLevel <= 50
+    ? 0.05 + (snarkLevel / 50) * 0.95
+    : 1 + ((snarkLevel - 50) / 50) * 3;
+}
+
 function cooldownFor(
   frequency: BuddyPluginData['settings']['frequency'],
   sessionMode: BuddySessionMode,
+  snarkLevel: number,
 ): number {
-  const base =
+  const freqBase =
     frequency === 'chatty' ? 90_000 : frequency === 'normal' ? 180_000 : 300_000;
+  // snark 0 → 3× longer cooldown, snark 100 → cooldown × 0.08 (very short)
+  const snarkFactor = snarkLevel <= 50
+    ? 3 - (snarkLevel / 50) * 2
+    : 1 - ((snarkLevel - 50) / 50) * 0.92;
+  const base = Math.round(freqBase * snarkFactor);
 
   const multiplier: Record<BuddySessionMode, number> = {
     idle: 1,
@@ -110,6 +123,7 @@ function shouldReactAmbiently(
   frequency: BuddyPluginData['settings']['frequency'],
   sessionMode: BuddySessionMode,
   sessionPatterns: string[],
+  snarkLevel: number,
 ): boolean {
   const baseChance: Record<BuddyEvent['type'], number> = {
     session_started: 0.08,
@@ -159,8 +173,8 @@ function shouldReactAmbiently(
           ? 0.7
           : 1;
   const adjustedChance = Math.min(
-    0.95,
-    baseChance[event.type] * multiplier * sessionMultiplier[sessionMode] * bias * patternMultiplier,
+    0.98,
+    baseChance[event.type] * multiplier * sessionMultiplier[sessionMode] * bias * patternMultiplier * snarkFrequencyMultiplier(snarkLevel),
   );
   return Math.random() < adjustedChance;
 }
@@ -505,7 +519,7 @@ export default class BestestBuddyPlugin extends Plugin {
       const sessionMode = currentSessionMode(this);
       const sessionPatterns = detectSessionPatterns(this.store.getRecentEvents(12));
       const lastReactionAt = this.data.lastReactionAt ?? 0;
-      if (Date.now() - lastReactionAt < cooldownFor(this.data.settings.frequency, sessionMode)) {
+      if (Date.now() - lastReactionAt < cooldownFor(this.data.settings.frequency, sessionMode, this.data.settings.snarkLevel)) {
         return;
       }
       if (
@@ -521,7 +535,7 @@ export default class BestestBuddyPlugin extends Plugin {
       ) {
         return;
       }
-      if (!shouldReactAmbiently(event, this.data.settings.frequency, sessionMode, sessionPatterns)) {
+      if (!shouldReactAmbiently(event, this.data.settings.frequency, sessionMode, sessionPatterns, this.data.settings.snarkLevel)) {
         return;
       }
     }
