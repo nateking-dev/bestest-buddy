@@ -46,6 +46,7 @@ export type BuddyPluginSettings = {
   burstThreshold: number;
   includeCurrentNoteInDirectReplies: boolean;
   enableWriteActions: boolean;
+  minimalMode: boolean;
 };
 
 export type BuddyPluginData = {
