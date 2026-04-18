@@ -9,7 +9,8 @@ export const DEFAULT_SETTINGS: BuddyPluginSettings = {
   claudeApiKey: '',
   model: 'gpt-4.1-mini',
   ambientEnabled: true,
-  frequency: 'quiet',
+  frequency: 'normal',
+  burstThreshold: 50,
   includeCurrentNoteInDirectReplies: true,
   enableWriteActions: false,
 };

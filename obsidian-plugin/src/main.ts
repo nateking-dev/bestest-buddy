@@ -132,15 +132,15 @@ function shouldReactAmbiently(
   const sessionMultiplier: Record<BuddySessionMode, number> = {
     idle: 1,
     starting: 0.95,
-    flowing: 0.4,
+    flowing: 0.65,
     revising: 0.9,
     stuck: 1.35,
     returning: 1.1,
   };
 
   const eventSessionBias: Partial<Record<BuddyEvent['type'], Partial<Record<BuddySessionMode, number>>>> = {
-    steady_session: { flowing: 0.3 },
-    writing_burst: { flowing: 0.35 },
+    steady_session: { flowing: 0.6 },
+    writing_burst: { flowing: 0.7 },
     revision_spike: { revising: 1.35, stuck: 1.15 },
     long_pause: { stuck: 1.4, flowing: 0.25 },
     returned_after_pause: { returning: 1.4, stuck: 1.2 },

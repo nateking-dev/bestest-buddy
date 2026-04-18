@@ -92,6 +92,22 @@ export class BuddySettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Writing burst threshold')
+      .setDesc('How many new words trigger a writing burst reaction. Minimum 10.')
+      .addText((text) =>
+        text
+          .setPlaceholder(String(DEFAULT_SETTINGS.burstThreshold))
+          .setValue(String(this.plugin.data.settings.burstThreshold))
+          .onChange(async (value) => {
+            const parsed = parseInt(value, 10);
+            this.plugin.data.settings.burstThreshold = isNaN(parsed)
+              ? DEFAULT_SETTINGS.burstThreshold
+              : Math.max(10, parsed);
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('Include current note context')
       .setDesc('Pass the current note title and excerpt to direct buddy replies.')
       .addToggle((toggle) =>
