@@ -14,4 +14,5 @@ export const DEFAULT_SETTINGS: BuddyPluginSettings = {
   includeCurrentNoteInDirectReplies: true,
   enableWriteActions: false,
   minimalMode: false,
+  snarkLevel: 50,
 };
