@@ -34,8 +34,12 @@ export type BuddyEvent = {
   message?: string;
 };
 
+export type LLMProvider = 'openai' | 'claude';
+
 export type BuddyPluginSettings = {
+  provider: LLMProvider;
   openAIApiKey: string;
+  claudeApiKey: string;
   model: string;
   ambientEnabled: boolean;
   frequency: BuddyFrequency;
