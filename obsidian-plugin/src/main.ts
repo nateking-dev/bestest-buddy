@@ -28,6 +28,8 @@ const PET_HEARTS = [
   '.    .   .  ',
 ] as const;
 const QUIET_IDLE_SETTLE_MS = 90_000;
+const CHATTY_TICK_INTERVAL_MS = 20_000;
+const CHATTY_TICK_COOLDOWN_MS = 30_000;
 
 function currentMoodMode(plugin: BestestBuddyPlugin): BuddyMood {
   const mood = plugin.data.moodState;
@@ -124,6 +126,7 @@ function shouldReactAmbiently(
     direct_question: 1,
     pet: 1,
     manual_note_help_request: 1,
+    chatty_tick: 0.9,
   };
 
   const multiplier =
@@ -257,11 +260,13 @@ export default class BestestBuddyPlugin extends Plugin {
 
   private spriteTimer: number | null = null;
   private bubbleTimer: number | null = null;
+  private chattyTickTimer: number | null = null;
   private eventController = new BuddyEventController(this);
   private spriteTick = 0;
 
   async onload(): Promise<void> {
     await this.store.load();
+    this.startChattyTick();
 
     this.registerView(VIEW_TYPE_BUDDY, (leaf) => new BuddyView(leaf, this));
     this.addRibbonIcon('sparkles', 'Bestest Buddy', async () => {
@@ -335,6 +340,9 @@ export default class BestestBuddyPlugin extends Plugin {
     }
     if (this.bubbleTimer !== null) {
       window.clearTimeout(this.bubbleTimer);
+    }
+    if (this.chattyTickTimer !== null) {
+      window.clearInterval(this.chattyTickTimer);
     }
     this.eventController.destroy();
   }
@@ -656,6 +664,42 @@ export default class BestestBuddyPlugin extends Plugin {
       return false;
     }
     return true;
+  }
+
+  private startChattyTick(): void {
+    this.chattyTickTimer = window.setInterval(() => { void this.fireChattyTick(); }, CHATTY_TICK_INTERVAL_MS);
+    this.registerInterval(this.chattyTickTimer);
+  }
+
+  private async fireChattyTick(): Promise<void> {
+    if (this.data.settings.frequency !== 'chatty') return;
+    if (this.data.muted || !this.data.settings.ambientEnabled) return;
+    if (!this.store.getCompanion()) return;
+
+    const recentWriting = this.store.getRecentEvents(20).some(
+      (e) =>
+        ['writing_burst', 'steady_session', 'revision_spike', 'note_opened'].includes(e.type) &&
+        Date.now() - e.at < 180_000,
+    );
+    if (!recentWriting) return;
+
+    if (Date.now() - (this.data.lastReactionAt ?? 0) < CHATTY_TICK_COOLDOWN_MS) return;
+
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView?.file || !activeView.editor) return;
+
+    const excerpt = this.readCursorExcerpt(activeView.file.path);
+    await this.handleBuddyEvent(
+      {
+        type: 'chatty_tick',
+        at: Date.now(),
+        notePath: activeView.file.path,
+        noteTitle: activeView.file.basename,
+        excerpt,
+        contextKind: 'note_excerpt',
+      },
+      true,
+    );
   }
 
   private readCursorExcerpt(forPath: string): string | undefined {
