@@ -527,7 +527,7 @@ export default class BestestBuddyPlugin extends Plugin {
     }
 
     const noteContext = event.notePath && this.data.settings.includeCurrentNoteInDirectReplies
-      ? await this.readNoteExcerptByPath(event.notePath)
+      ? (this.readCursorExcerpt(event.notePath) ?? await this.readNoteExcerptByPath(event.notePath))
       : undefined;
 
     this.busy = true;
@@ -656,6 +656,22 @@ export default class BestestBuddyPlugin extends Plugin {
       return false;
     }
     return true;
+  }
+
+  private readCursorExcerpt(forPath: string): string | undefined {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView?.editor || activeView.file?.path !== forPath) return undefined;
+    const editor = activeView.editor;
+    const cursor = editor.getCursor();
+    const totalLines = editor.lineCount();
+    const startLine = Math.max(0, cursor.line - 4);
+    const endLine = Math.min(totalLines - 1, cursor.line + 4);
+    const lines: string[] = [];
+    for (let i = startLine; i <= endLine; i++) {
+      lines.push(editor.getLine(i));
+    }
+    const compact = lines.join(' ').replace(/\s+/g, ' ').trim();
+    return compact || undefined;
   }
 
   private async readNoteExcerpt(file: TFile): Promise<string | undefined> {
