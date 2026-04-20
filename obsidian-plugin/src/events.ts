@@ -6,8 +6,16 @@ function extractWordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
-function excerptFrom(text: string): string | undefined {
-  const compact = text.replace(/\s+/g, ' ').trim();
+function excerptAround(editor: Editor): string | undefined {
+  const cursor = editor.getCursor();
+  const totalLines = editor.lineCount();
+  const startLine = Math.max(0, cursor.line - 4);
+  const endLine = Math.min(totalLines - 1, cursor.line + 4);
+  const lines: string[] = [];
+  for (let i = startLine; i <= endLine; i++) {
+    lines.push(editor.getLine(i));
+  }
+  const compact = lines.join(' ').replace(/\s+/g, ' ').trim();
   return compact ? compact.slice(0, 320) : undefined;
 }
 
@@ -113,7 +121,7 @@ export class BuddyEventController {
         notePath: file?.path,
         noteTitle: file?.basename,
         wordCount,
-        excerpt: excerptFrom(text),
+        excerpt: excerptAround(editor),
       });
       this.lastRevisionAt = now;
     }
@@ -126,7 +134,7 @@ export class BuddyEventController {
         notePath: file?.path,
         noteTitle: file?.basename,
         wordCount,
-        excerpt: excerptFrom(text),
+        excerpt: excerptAround(editor),
       });
       this.lastWordCount = wordCount;
       this.lastBurstAt = now;
@@ -145,7 +153,7 @@ export class BuddyEventController {
         notePath: file?.path,
         noteTitle: file?.basename,
         wordCount,
-        excerpt: excerptFrom(text),
+        excerpt: excerptAround(editor),
       });
       this.firedSteadySession = true;
     }
@@ -157,7 +165,7 @@ export class BuddyEventController {
         notePath: file?.path,
         noteTitle: file?.basename,
         wordCount,
-        excerpt: excerptFrom(text),
+        excerpt: excerptAround(editor),
       });
       this.lastPauseAt = null;
     }
@@ -174,7 +182,7 @@ export class BuddyEventController {
           notePath: file?.path,
           noteTitle: file?.basename,
           wordCount: pausedWordCount,
-          excerpt: excerptFrom(pausedText),
+          excerpt: excerptAround(editor),
         });
       }
     }, 35_000);
