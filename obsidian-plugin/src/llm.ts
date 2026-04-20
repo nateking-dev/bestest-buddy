@@ -41,8 +41,8 @@ function buddyVoiceGuide(companion: Companion): string {
   if (strongest.includes('PATIENCE')) {
     styleBits.push('Sound steady and unhurried.');
   }
-  if (strongest.includes('DEBUGGING')) {
-    styleBits.push('Notice patterns, friction, and what the draft is doing.');
+  if (strongest.includes('GRAMMARING')) {
+    styleBits.push('Notice awkward phrasing, unclear sentences, and places the writing could be sharper.');
   }
 
   switch (companion.species) {
