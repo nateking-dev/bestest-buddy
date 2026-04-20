@@ -94,6 +94,8 @@ function eventGuidance(event: BuddyEvent, directMessage?: string): string {
       return 'Sound lightly ritualistic or companionable, never grand.';
     case 'pet':
       return 'Receive the pet with a little warmth or dry amusement.';
+    case 'chatty_tick':
+      return 'React to the specific words and ideas in the note excerpt. Be curious, wry, or lightly observational about the actual content — not the act of writing.';
     default:
       return 'Stay situational and restrained.';
   }
