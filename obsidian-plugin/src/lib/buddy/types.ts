@@ -48,7 +48,7 @@ export const HATS = [
 export type Hat = (typeof HATS)[number];
 
 export const STAT_NAMES = [
-  'DEBUGGING',
+  'GRAMMARING',
   'PATIENCE',
   'CHAOS',
   'WISDOM',
