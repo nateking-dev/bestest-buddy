@@ -21,7 +21,8 @@ export type BuddyEventType =
   | 'daily_note_opened'
   | 'direct_question'
   | 'pet'
-  | 'manual_note_help_request';
+  | 'manual_note_help_request'
+  | 'chatty_tick';
 
 export type BuddyEvent = {
   type: BuddyEventType;
