@@ -12,6 +12,7 @@ import { BuddyStore } from './store';
 import { spriteFrameCount } from './lib/buddy/sprites';
 import type { BuddyEvent, BuddyPluginData, BuddyMood, BuddySessionMode } from './types';
 import { BuddyView } from './view';
+import { EyePickerModal, HatPickerModal, SpeciesPickerModal, StatsModal } from './customize';
 
 const SPRITE_TICK_MS = 440;
 const BUBBLE_SHOW_MS = 10_000;
@@ -88,12 +89,25 @@ function nextSessionForEvent(
   return transitions[event.type] ?? currentSession;
 }
 
+function snarkFrequencyMultiplier(snarkLevel: number): number {
+  // 0 → 0.05 (almost silent), 50 → 1.0 (normal), 100 → 4.0 (relentless)
+  return snarkLevel <= 50
+    ? 0.05 + (snarkLevel / 50) * 0.95
+    : 1 + ((snarkLevel - 50) / 50) * 3;
+}
+
 function cooldownFor(
   frequency: BuddyPluginData['settings']['frequency'],
   sessionMode: BuddySessionMode,
+  snarkLevel: number,
 ): number {
-  const base =
+  const freqBase =
     frequency === 'chatty' ? 90_000 : frequency === 'normal' ? 180_000 : 300_000;
+  // snark 0 → 3× longer cooldown, snark 100 → cooldown × 0.08 (very short)
+  const snarkFactor = snarkLevel <= 50
+    ? 3 - (snarkLevel / 50) * 2
+    : 1 - ((snarkLevel - 50) / 50) * 0.92;
+  const base = Math.round(freqBase * snarkFactor);
 
   const multiplier: Record<BuddySessionMode, number> = {
     idle: 1,
@@ -112,6 +126,7 @@ function shouldReactAmbiently(
   frequency: BuddyPluginData['settings']['frequency'],
   sessionMode: BuddySessionMode,
   sessionPatterns: string[],
+  snarkLevel: number,
 ): boolean {
   const baseChance: Record<BuddyEvent['type'], number> = {
     session_started: 0.08,
@@ -135,15 +150,15 @@ function shouldReactAmbiently(
   const sessionMultiplier: Record<BuddySessionMode, number> = {
     idle: 1,
     starting: 0.95,
-    flowing: 0.4,
+    flowing: 0.65,
     revising: 0.9,
     stuck: 1.35,
     returning: 1.1,
   };
 
   const eventSessionBias: Partial<Record<BuddyEvent['type'], Partial<Record<BuddySessionMode, number>>>> = {
-    steady_session: { flowing: 0.3 },
-    writing_burst: { flowing: 0.35 },
+    steady_session: { flowing: 0.6 },
+    writing_burst: { flowing: 0.7 },
     revision_spike: { revising: 1.35, stuck: 1.15 },
     long_pause: { stuck: 1.4, flowing: 0.25 },
     returned_after_pause: { returning: 1.4, stuck: 1.2 },
@@ -162,8 +177,8 @@ function shouldReactAmbiently(
           ? 0.7
           : 1;
   const adjustedChance = Math.min(
-    0.95,
-    baseChance[event.type] * multiplier * sessionMultiplier[sessionMode] * bias * patternMultiplier,
+    0.98,
+    baseChance[event.type] * multiplier * sessionMultiplier[sessionMode] * bias * patternMultiplier * snarkFrequencyMultiplier(snarkLevel),
   );
   return Math.random() < adjustedChance;
 }
@@ -257,6 +272,7 @@ export default class BestestBuddyPlugin extends Plugin {
   lastError: string | null = null;
   bubbleShownAt: number | null = null;
   petStartedAt: number | null = null;
+  ambientReactionStartedAt: number | null = null;
 
   private spriteTimer: number | null = null;
   private bubbleTimer: number | null = null;
@@ -322,6 +338,59 @@ export default class BestestBuddyPlugin extends Plugin {
         await this.store.resetCompanion();
         this.currentBubble = null;
         this.refreshViews();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-species',
+      name: 'Customize: choose species',
+      callback: () => {
+        new SpeciesPickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-eye',
+      name: 'Customize: choose eye style',
+      callback: () => {
+        new EyePickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-hat',
+      name: 'Customize: choose hat',
+      callback: () => {
+        new HatPickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-stats',
+      name: 'Customize: edit stats',
+      callback: () => {
+        new StatsModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-toggle-shiny',
+      name: 'Customize: toggle shiny',
+      callback: async () => {
+        const current = this.store.getCompanion()?.shiny ?? false;
+        await this.store.setOverride('shiny', !current);
+        this.refreshViews();
+        new Notice(`Shiny: ${!current ? 'on' : 'off'}`);
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-reset-appearance',
+      name: 'Customize: reset appearance to generated',
+      callback: async () => {
+        await this.store.clearAppearanceOverrides();
+        this.refreshViews();
+        new Notice('Appearance reset to generated values.');
       },
     });
 
@@ -507,13 +576,19 @@ export default class BestestBuddyPlugin extends Plugin {
     await this.store.appendEvent(event);
 
     if (!force) {
+      if (this.busy || this.ambientReactionStartedAt !== null) {
+        return;
+      }
       if (this.data.muted || !this.data.settings.ambientEnabled) {
         return;
       }
       const sessionMode = currentSessionMode(this);
       const sessionPatterns = detectSessionPatterns(this.store.getRecentEvents(12));
-      const lastReactionAt = this.data.lastReactionAt ?? 0;
-      if (Date.now() - lastReactionAt < cooldownFor(this.data.settings.frequency, sessionMode)) {
+      const lastReactionAt = Math.max(
+        this.data.lastReactionAt ?? 0,
+        this.ambientReactionStartedAt ?? 0,
+      );
+      if (Date.now() - lastReactionAt < cooldownFor(this.data.settings.frequency, sessionMode, this.data.settings.snarkLevel)) {
         return;
       }
       if (
@@ -529,9 +604,11 @@ export default class BestestBuddyPlugin extends Plugin {
       ) {
         return;
       }
-      if (!shouldReactAmbiently(event, this.data.settings.frequency, sessionMode, sessionPatterns)) {
+      if (!shouldReactAmbiently(event, this.data.settings.frequency, sessionMode, sessionPatterns, this.data.settings.snarkLevel)) {
         return;
       }
+
+      this.ambientReactionStartedAt = Date.now();
     }
 
     const noteContext = event.notePath && this.data.settings.includeCurrentNoteInDirectReplies
@@ -561,6 +638,9 @@ export default class BestestBuddyPlugin extends Plugin {
       this.lastError = 'Buddy reaction failed.';
       this.refreshViews();
     } finally {
+      if (!force) {
+        this.ambientReactionStartedAt = null;
+      }
       this.busy = false;
       this.refreshViews();
     }
@@ -655,7 +735,7 @@ export default class BestestBuddyPlugin extends Plugin {
     return PET_HEARTS[elapsedTicks % PET_HEARTS.length] ?? PET_HEARTS[0];
   }
 
-  private isPetting(now = Date.now()): boolean {
+  isPetting(now = Date.now()): boolean {
     if (this.petStartedAt === null) {
       return false;
     }

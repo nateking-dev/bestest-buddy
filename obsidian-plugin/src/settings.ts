@@ -14,8 +14,22 @@ export class BuddySettingTab extends PluginSettingTab {
     containerEl.createEl('h2', { text: 'Bestest Buddy' });
 
     new Setting(containerEl)
+      .setName('LLM provider')
+      .setDesc('Which API to use for hatch and buddy reactions.')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('openai', 'OpenAI')
+          .addOption('claude', 'Claude (Anthropic)')
+          .setValue(this.plugin.data.settings.provider)
+          .onChange(async (value) => {
+            this.plugin.data.settings.provider = value as typeof this.plugin.data.settings.provider;
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('OpenAI API key')
-      .setDesc('Stored in plugin settings for direct and ambient buddy reactions.')
+      .setDesc('Used when provider is set to OpenAI.')
       .addText((text) =>
         text
           .setPlaceholder('sk-...')
@@ -27,8 +41,21 @@ export class BuddySettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Claude API key')
+      .setDesc('Used when provider is set to Claude (Anthropic).')
+      .addText((text) =>
+        text
+          .setPlaceholder('sk-ant-...')
+          .setValue(this.plugin.data.settings.claudeApiKey)
+          .onChange(async (value) => {
+            this.plugin.data.settings.claudeApiKey = value.trim();
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('Model')
-      .setDesc('Responses API model used for hatch and direct replies.')
+      .setDesc('Model name for the selected provider (e.g. gpt-4.1-mini or claude-haiku-4-5-20251001).')
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.model)
@@ -65,6 +92,22 @@ export class BuddySettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Writing burst threshold')
+      .setDesc('How many new words trigger a writing burst reaction. Minimum 10.')
+      .addText((text) =>
+        text
+          .setPlaceholder(String(DEFAULT_SETTINGS.burstThreshold))
+          .setValue(String(this.plugin.data.settings.burstThreshold))
+          .onChange(async (value) => {
+            const parsed = parseInt(value, 10);
+            this.plugin.data.settings.burstThreshold = isNaN(parsed)
+              ? DEFAULT_SETTINGS.burstThreshold
+              : Math.max(10, parsed);
+            await this.plugin.store.save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('Include current note context')
       .setDesc('Pass the current note title and excerpt to direct buddy replies.')
       .addToggle((toggle) =>
@@ -85,5 +128,42 @@ export class BuddySettingTab extends PluginSettingTab {
           await this.plugin.store.save();
         }),
       );
+
+    new Setting(containerEl)
+      .setName('Minimal mode')
+      .setDesc('Show only the sprite in the sidebar panel.')
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.data.settings.minimalMode).onChange(async (value) => {
+          this.plugin.data.settings.minimalMode = value;
+          await this.plugin.store.save();
+          this.plugin.refreshViews();
+        }),
+      );
+
+    let snarkWarning: HTMLParagraphElement;
+
+    new Setting(containerEl)
+      .setName('Snark level')
+      .setDesc('Controls how often and how sharply buddy comments. 0 = rare and gentle, 100 = constant and merciless.')
+      .addSlider((slider) =>
+        slider
+          .setLimits(0, 100, 1)
+          .setValue(this.plugin.data.settings.snarkLevel)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.data.settings.snarkLevel = value;
+            snarkWarning.style.display = value > 90 ? 'block' : 'none';
+            await this.plugin.store.save();
+          }),
+      );
+
+    snarkWarning = containerEl.createEl('p', {
+      text: 'Warning: snark level above 90 may use significantly more tokens.',
+    });
+    snarkWarning.style.color = 'var(--color-red)';
+    snarkWarning.style.fontSize = '0.85em';
+    snarkWarning.style.marginTop = '4px';
+    snarkWarning.style.display =
+      this.plugin.data.settings.snarkLevel > 90 ? 'block' : 'none';
   }
 }
