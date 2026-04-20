@@ -106,6 +106,7 @@ export class BuddyEventController {
       this.sessionStartWordCount = wordCount;
       this.sessionChangeCount = 0;
       this.firedSteadySession = false;
+      this.lastWordCount = wordCount;
     }
     this.sessionChangeCount += 1;
 
@@ -125,7 +126,8 @@ export class BuddyEventController {
       this.lastRevisionAt = now;
     }
 
-    if (wordCount - this.lastWordCount >= 120 && now - this.lastBurstAt > 120_000) {
+    const burstThreshold = this.plugin.data.settings.burstThreshold;
+    if (wordCount - this.lastWordCount >= burstThreshold && now - this.lastBurstAt > 120_000) {
       await this.plugin.handleBuddyEvent({
         type: 'writing_burst',
         at: now,

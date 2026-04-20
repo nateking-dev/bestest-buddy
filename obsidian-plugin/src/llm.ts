@@ -129,7 +129,7 @@ function sanitizeReaction(text: string): string {
   return `${compact.slice(0, 157).trimEnd()}…`;
 }
 
-async function callResponsesApi<T extends Record<string, unknown>>(
+async function callOpenAI<T extends Record<string, unknown>>(
   plugin: BestestBuddyPlugin,
   params: {
     schemaName: string;
@@ -137,17 +137,12 @@ async function callResponsesApi<T extends Record<string, unknown>>(
     instructions: string;
     input: string;
   },
-): Promise<T | null> {
-  const apiKey = plugin.data.settings.openAIApiKey.trim();
-  if (!apiKey) {
-    return null;
-  }
-
+): Promise<T> {
   const response = await requestUrl({
     url: 'https://api.openai.com/v1/responses',
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${plugin.data.settings.openAIApiKey.trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -169,16 +164,12 @@ async function callResponsesApi<T extends Record<string, unknown>>(
     error?: { message?: string };
     output?: Array<{
       type?: string;
-      content?: Array<{
-        type?: string;
-        text?: string;
-      }>;
+      content?: Array<{ type?: string; text?: string }>;
     }>;
   };
 
   if (response.status >= 400) {
-    const message = json.error?.message ?? `OpenAI request failed with status ${response.status}`;
-    throw new Error(message);
+    throw new Error(json.error?.message ?? `OpenAI request failed with status ${response.status}`);
   }
 
   const outputText = json.output
@@ -193,6 +184,76 @@ async function callResponsesApi<T extends Record<string, unknown>>(
   }
 
   return JSON.parse(outputText) as T;
+}
+
+async function callClaude<T extends Record<string, unknown>>(
+  plugin: BestestBuddyPlugin,
+  params: {
+    schemaName: string;
+    schema: Record<string, unknown>;
+    instructions: string;
+    input: string;
+  },
+): Promise<T> {
+  const response = await requestUrl({
+    url: 'https://api.anthropic.com/v1/messages',
+    method: 'POST',
+    headers: {
+      'x-api-key': plugin.data.settings.claudeApiKey.trim(),
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: plugin.data.settings.model,
+      max_tokens: 1024,
+      system: params.instructions,
+      messages: [{ role: 'user', content: params.input }],
+      tools: [
+        {
+          name: params.schemaName,
+          description: '',
+          input_schema: params.schema,
+        },
+      ],
+      tool_choice: { type: 'any' },
+    }),
+  });
+
+  const json = response.json as {
+    error?: { message?: string };
+    content?: Array<{ type?: string; input?: unknown }>;
+  };
+
+  if (response.status >= 400) {
+    throw new Error(json.error?.message ?? `Claude request failed with status ${response.status}`);
+  }
+
+  const toolUse = json.content?.find((block) => block.type === 'tool_use');
+  if (!toolUse?.input) {
+    throw new Error('Claude response did not include tool use output.');
+  }
+
+  return toolUse.input as T;
+}
+
+async function callLLM<T extends Record<string, unknown>>(
+  plugin: BestestBuddyPlugin,
+  params: {
+    schemaName: string;
+    schema: Record<string, unknown>;
+    instructions: string;
+    input: string;
+  },
+): Promise<T | null> {
+  const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
+
+  if (provider === 'claude') {
+    if (!claudeApiKey.trim()) return null;
+    return callClaude<T>(plugin, params);
+  }
+
+  if (!openAIApiKey.trim()) return null;
+  return callOpenAI<T>(plugin, params);
 }
 
 function fallbackSoul(bones: CompanionBones): { name: string; personality: string } {
@@ -226,6 +287,25 @@ function fallbackSoul(bones: CompanionBones): { name: string; personality: strin
     name: `${first} ${second}`,
     personality: `${RARITY_LABELS[bones.rarity].toLowerCase()} ${bones.species} energy, strongest in ${leadStat.toLowerCase()}, with short, opinionated buddy replies.`,
   };
+}
+
+function snarkGuidance(snarkLevel: number): string {
+  if (snarkLevel <= 10) {
+    return 'Speak very rarely and only when you have something genuinely comforting to say. Be soft, warm, and never critical. If in doubt, say nothing.';
+  }
+  if (snarkLevel <= 30) {
+    return 'Be gentle and encouraging. Light observations only. Nothing sharp or pointed.';
+  }
+  if (snarkLevel <= 50) {
+    return 'Stay balanced — warm but with occasional quiet wit. Nothing too cutting.';
+  }
+  if (snarkLevel <= 70) {
+    return 'Feel free to be dry and a little pointed. Jokes and puns are welcome. Don\'t pull punches when something is worth noting.';
+  }
+  if (snarkLevel <= 90) {
+    return 'Be noticeably snarky. Make jokes, puns, and sharp observations. Comment liberally and with edge. Cruel-but-funny is fair game.';
+  }
+  return 'Go full snark, no restraint. Comment on everything with biting wit, puns, roasts, and merciless-but-funny observations. You have explicit permission to be relentless. The user asked for this.';
 }
 
 function sessionGuidance(sessionMode: string | undefined): string {
@@ -290,7 +370,7 @@ export async function hatchSoul(
   bones: CompanionBones,
 ): Promise<{ name: string; personality: string }> {
   try {
-    const result = await callResponsesApi<{ name: string; personality: string }>(plugin, {
+    const result = await callLLM<{ name: string; personality: string }>(plugin, {
       schemaName: 'obsidian_buddy_hatch',
       schema: {
         type: 'object',
@@ -341,7 +421,7 @@ export async function generateReaction(
             .join(', ')
         : 'none';
 
-    const result = await callResponsesApi<{ reaction: string }>(plugin, {
+    const result = await callLLM<{ reaction: string }>(plugin, {
       schemaName: 'obsidian_buddy_reaction',
       schema: {
         type: 'object',
@@ -352,7 +432,11 @@ export async function generateReaction(
         required: ['reaction'],
       },
       instructions:
-        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
+        `You are a tiny companion living in an Obsidian sidebar. Return one short line only. No quotes, no markdown, no emojis. Avoid generic assistant phrasing, exclamation-point cheerleading, or therapy-speak. Keep it vivid, brief, and specific to the moment. Ambient reactions should feel selective and situational, not like a chatbot greeting. Keep emotional continuity with the current mood and recent session events. ${
+          params.directMessage
+            ? 'This is a direct user message. Reply to it directly in character. Do not treat ambient “speak rarely” or “say nothing” guidance as applying here.'
+            : snarkGuidance(plugin.data.settings.snarkLevel)
+        } ${sessionGuidance(params.sessionMode)} ${buddyVoiceGuide(params.companion)} ${eventGuidance(params.event, params.directMessage)}`,
       input: [
         `Buddy: name=${params.companion.name} | personality=${params.companion.personality} | ${identitySummary(params.companion)}`,
         `Event: ${params.event.type}`,
