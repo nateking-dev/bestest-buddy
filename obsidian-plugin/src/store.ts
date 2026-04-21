@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 import { createStableUserSeed, mergeCompanion, roll } from './lib/buddy/companion';
-import type { Companion, Eye, Hat, Species, StatName, StoredCompanion } from './lib/buddy/types';
+import type { Companion, Eye, Hat, Rarity, Species, StatName, StoredCompanion } from './lib/buddy/types';
 import { DEFAULT_SETTINGS, MAX_RECENT_EVENTS } from './constants';
 import type BestestBuddyPlugin from './main';
 import type { BuddyEvent, BuddyMood, BuddyPluginData, BuddySessionMode, CompanionOverrides } from './types';
@@ -59,6 +59,7 @@ export class BuddyStore {
       species: overrides.species ?? base.species,
       eye: overrides.eye ?? base.eye,
       hat: overrides.hat ?? base.hat,
+      rarity: overrides.rarity ?? base.rarity,
       shiny: overrides.shiny ?? base.shiny,
       stats: overrides.stats ? { ...base.stats, ...overrides.stats } : base.stats,
     };
@@ -89,12 +90,30 @@ export class BuddyStore {
 
   async setOverride<K extends keyof Omit<CompanionOverrides, 'stats'>>(
     key: K,
-    value: Species | Eye | Hat | boolean,
+    value: Species | Eye | Hat | Rarity | boolean,
   ): Promise<void> {
     this.plugin.data.companionOverrides = {
       ...this.plugin.data.companionOverrides,
       [key]: value,
     };
+    await this.save();
+  }
+
+  async setColorOverride(color: string): Promise<void> {
+    this.plugin.data.companionOverrides = {
+      ...this.plugin.data.companionOverrides,
+      color,
+    };
+    await this.save();
+  }
+
+  async clearColorOverride(): Promise<void> {
+    if (this.plugin.data.companionOverrides) {
+      this.plugin.data.companionOverrides = {
+        ...this.plugin.data.companionOverrides,
+        color: undefined,
+      };
+    }
     await this.save();
   }
 

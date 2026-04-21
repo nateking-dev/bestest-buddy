@@ -4,6 +4,7 @@ export const RARITIES = [
   'rare',
   'epic',
   'legendary',
+  'mythic',
 ] as const;
 
 export type Rarity = (typeof RARITIES)[number];
@@ -86,6 +87,7 @@ export const RARITY_WEIGHTS = {
   rare: 10,
   epic: 4,
   legendary: 1,
+  mythic: 0.1,
 } as const satisfies Record<Rarity, number>;
 
 export const RARITY_COLORS = {
@@ -94,7 +96,21 @@ export const RARITY_COLORS = {
   rare: '#2c6ed5',
   epic: '#cc6b19',
   legendary: '#c43d2f',
+  mythic: '#e8c048',
 } as const satisfies Record<Rarity, string>;
+
+export const SPRITE_COLORS = [
+  { label: 'Red',    value: '#FF6B6B' },
+  { label: 'Orange', value: '#FFA500' },
+  { label: 'Yellow', value: '#FFD93D' },
+  { label: 'Green',  value: '#6BCB77' },
+  { label: 'Cyan',   value: '#4D96FF' },
+  { label: 'Blue',   value: '#5B9BD5' },
+  { label: 'Purple', value: '#9D84B7' },
+  { label: 'Pink',   value: '#FF6B9D' },
+  { label: 'Gray',   value: '#A9A9A9' },
+  { label: 'White',  value: '#F5F5F5' },
+] as const;
 
 export const RARITY_LABELS = {
   common: 'Common',
@@ -102,5 +118,6 @@ export const RARITY_LABELS = {
   rare: 'Rare',
   epic: 'Epic',
   legendary: 'Legendary',
+  mythic: 'Mythic',
 } as const satisfies Record<Rarity, string>;
 
