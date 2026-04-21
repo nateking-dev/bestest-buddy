@@ -96,6 +96,19 @@ export const RARITY_COLORS = {
   legendary: '#c43d2f',
 } as const satisfies Record<Rarity, string>;
 
+export const SPRITE_COLORS = [
+  { label: 'Red',    value: '#FF6B6B' },
+  { label: 'Orange', value: '#FFA500' },
+  { label: 'Yellow', value: '#FFD93D' },
+  { label: 'Green',  value: '#6BCB77' },
+  { label: 'Cyan',   value: '#4D96FF' },
+  { label: 'Blue',   value: '#5B9BD5' },
+  { label: 'Purple', value: '#9D84B7' },
+  { label: 'Pink',   value: '#FF6B9D' },
+  { label: 'Gray',   value: '#A9A9A9' },
+  { label: 'White',  value: '#F5F5F5' },
+] as const;
+
 export const RARITY_LABELS = {
   common: 'Common',
   uncommon: 'Uncommon',
