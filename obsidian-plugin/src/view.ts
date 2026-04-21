@@ -111,12 +111,14 @@ export class BuddyView extends ItemView {
       : '';
     const patternClasses = this.plugin.getSessionPatterns().map((pattern) => `has-pattern-${this.toClassToken(pattern)}`);
     const microstateClass = `is-micro-${this.plugin.getSpriteMicrostate()}`;
+    const rarityClass = companion?.rarity === 'mythic' ? 'is-rarity-mythic' : '';
     stage.className = [
       'bestest-buddy-stage',
       this.plugin.data.muted ? 'bestest-buddy-muted' : '',
       moodClass,
       sessionClass,
       microstateClass,
+      rarityClass,
       ...patternClasses,
     ]
       .filter(Boolean)
@@ -149,7 +151,11 @@ export class BuddyView extends ItemView {
       this.rubStartedAt = null;
     });
     const colorOverride = this.plugin.data.companionOverrides?.color;
-    spriteEl.style.color = colorOverride ?? RARITY_COLORS[companion.rarity];
+    if (colorOverride) {
+      spriteEl.style.color = colorOverride;
+    } else if (companion.rarity !== 'mythic') {
+      spriteEl.style.color = RARITY_COLORS[companion.rarity];
+    }
     const spriteLines = renderSprite(companion, this.plugin.currentSpriteFrame);
     spriteEl.setText(
       this.plugin.currentSpriteBlink
