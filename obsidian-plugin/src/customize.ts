@@ -3,6 +3,7 @@ import {
   EYES,
   HATS,
   SPECIES,
+  SPRITE_COLORS,
   STAT_NAMES,
   type Eye,
   type Hat,
@@ -71,6 +72,63 @@ export class HatPickerModal extends FuzzySuggestModal<Hat> {
     await this.plugin.store.setOverride('hat', item);
     this.plugin.refreshViews();
     new Notice(`Hat: ${item}`);
+  }
+}
+
+export class ColorPickerModal extends Modal {
+  constructor(private readonly plugin: BestestBuddyPlugin) {
+    super(plugin.app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl('h3', { text: 'Choose sprite color' });
+
+    const grid = contentEl.createDiv({ cls: 'bestest-buddy-color-grid' });
+    for (const { label, value } of SPRITE_COLORS) {
+      const btn = grid.createEl('button', { text: label });
+      btn.style.borderLeft = `4px solid ${value}`;
+      btn.addEventListener('click', async () => {
+        await this.plugin.store.setColorOverride(value);
+        this.plugin.refreshViews();
+        new Notice(`Color: ${label}`);
+        this.close();
+      });
+    }
+
+    let hexInput = '';
+    new Setting(contentEl)
+      .setName('Custom hex code')
+      .setDesc('e.g. #FF5733')
+      .addText((text) => {
+        text.setPlaceholder('#rrggbb').onChange((v) => { hexInput = v; });
+      })
+      .addButton((btn) =>
+        btn.setButtonText('Apply').setCta().onClick(async () => {
+          const hex = hexInput.trim();
+          if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+            new Notice('Invalid hex code. Use format #rrggbb');
+            return;
+          }
+          await this.plugin.store.setColorOverride(hex);
+          this.plugin.refreshViews();
+          new Notice(`Color: ${hex}`);
+          this.close();
+        }),
+      );
+
+    new Setting(contentEl).addButton((btn) =>
+      btn.setButtonText('Reset to rarity color').onClick(async () => {
+        await this.plugin.store.clearColorOverride();
+        this.plugin.refreshViews();
+        new Notice('Color reset to rarity color.');
+        this.close();
+      }),
+    );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }
 
