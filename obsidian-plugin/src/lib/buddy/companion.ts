@@ -54,6 +54,7 @@ const RARITY_FLOOR: Record<Rarity, number> = {
   rare: 25,
   epic: 35,
   legendary: 50,
+  mythic: 70,
 };
 
 function rollStats(rng: () => number, rarity: Rarity): Record<StatName, number> {
