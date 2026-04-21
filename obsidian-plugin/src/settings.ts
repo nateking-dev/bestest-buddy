@@ -30,28 +30,30 @@ export class BuddySettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('OpenAI API key')
       .setDesc('Used when provider is set to OpenAI.')
-      .addText((text) =>
+      .addText((text) => {
+        text.inputEl.type = 'password';
         text
           .setPlaceholder('sk-...')
           .setValue(this.plugin.data.settings.openAIApiKey)
           .onChange(async (value) => {
             this.plugin.data.settings.openAIApiKey = value.trim();
             await this.plugin.store.save();
-          }),
-      );
+          });
+      });
 
     new Setting(containerEl)
       .setName('Claude API key')
       .setDesc('Used when provider is set to Claude (Anthropic).')
-      .addText((text) =>
+      .addText((text) => {
+        text.inputEl.type = 'password';
         text
           .setPlaceholder('sk-ant-...')
           .setValue(this.plugin.data.settings.claudeApiKey)
           .onChange(async (value) => {
             this.plugin.data.settings.claudeApiKey = value.trim();
             await this.plugin.store.save();
-          }),
-      );
+          });
+      });
 
     new Setting(containerEl)
       .setName('Model')
