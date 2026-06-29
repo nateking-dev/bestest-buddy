@@ -148,7 +148,9 @@ export class BuddyView extends ItemView {
     spriteEl.addEventListener('mouseleave', () => {
       this.rubStartedAt = null;
     });
-    spriteEl.style.color = RARITY_COLORS[companion.rarity];
+    const colorOverride = this.plugin.data.companionOverrides?.color;
+    const spriteColor = colorOverride && CSS.supports('color', colorOverride) ? colorOverride : undefined;
+    spriteEl.style.color = spriteColor ?? RARITY_COLORS[companion.rarity];
     const spriteLines = renderSprite(companion, this.plugin.currentSpriteFrame);
     spriteEl.setText(
       this.plugin.currentSpriteBlink

@@ -12,7 +12,7 @@ import { BuddyStore } from './store';
 import { spriteFrameCount } from './lib/buddy/sprites';
 import type { BuddyEvent, BuddyPluginData, BuddyMood, BuddySessionMode } from './types';
 import { BuddyView } from './view';
-import { EyePickerModal, HatPickerModal, SpeciesPickerModal, StatsModal } from './customize';
+import { ColorPickerModal, EyePickerModal, HatPickerModal, SpeciesPickerModal, StatsModal } from './customize';
 
 const SPRITE_TICK_MS = 440;
 const BUBBLE_SHOW_MS = 10_000;
@@ -362,6 +362,14 @@ export default class BestestBuddyPlugin extends Plugin {
       name: 'Customize: choose hat',
       callback: () => {
         new HatPickerModal(this).open();
+      },
+    });
+
+    this.addCommand({
+      id: 'customize-color',
+      name: 'Customize: choose color',
+      callback: () => {
+        new ColorPickerModal(this).open();
       },
     });
 

@@ -98,6 +98,24 @@ export class BuddyStore {
     await this.save();
   }
 
+  async setColorOverride(color: string): Promise<void> {
+    this.plugin.data.companionOverrides = {
+      ...this.plugin.data.companionOverrides,
+      color,
+    };
+    await this.save();
+  }
+
+  async clearColorOverride(): Promise<void> {
+    if (this.plugin.data.companionOverrides) {
+      this.plugin.data.companionOverrides = {
+        ...this.plugin.data.companionOverrides,
+        color: undefined,
+      };
+    }
+    await this.save();
+  }
+
   async setStatOverrides(stats: Partial<Record<StatName, number>>): Promise<void> {
     this.plugin.data.companionOverrides = {
       ...this.plugin.data.companionOverrides,

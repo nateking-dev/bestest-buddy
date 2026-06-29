@@ -56,6 +56,7 @@ export type CompanionOverrides = {
   eye?: Eye;
   hat?: Hat;
   shiny?: boolean;
+  color?: string;
   stats?: Partial<Record<StatName, number>>;
 };
 
