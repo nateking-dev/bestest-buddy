@@ -149,7 +149,8 @@ export class BuddyView extends ItemView {
       this.rubStartedAt = null;
     });
     const colorOverride = this.plugin.data.companionOverrides?.color;
-    spriteEl.style.color = colorOverride ?? RARITY_COLORS[companion.rarity];
+    const spriteColor = colorOverride && CSS.supports('color', colorOverride) ? colorOverride : undefined;
+    spriteEl.style.color = spriteColor ?? RARITY_COLORS[companion.rarity];
     const spriteLines = renderSprite(companion, this.plugin.currentSpriteFrame);
     spriteEl.setText(
       this.plugin.currentSpriteBlink
