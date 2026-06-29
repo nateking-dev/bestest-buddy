@@ -73,7 +73,7 @@ function rollStats(rng: () => number, rarity: Rarity): Record<StatName, number> 
     } else if (stat === dump) {
       stats[stat] = Math.max(1, floor - 10 + Math.floor(rng() * 15));
     } else {
-      stats[stat] = floor + Math.floor(rng() * 40);
+      stats[stat] = Math.min(100, floor + Math.floor(rng() * 40));
     }
   }
 
