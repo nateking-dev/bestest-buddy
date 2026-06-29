@@ -87,10 +87,11 @@ export class BuddyStore {
     new Notice('Buddy reset for this vault.');
   }
 
-  async setOverride<K extends keyof Omit<CompanionOverrides, 'stats'>>(
-    key: K,
-    value: Species | Eye | Hat | boolean,
-  ): Promise<void> {
+  async setOverride(key: 'species', value: Species): Promise<void>;
+  async setOverride(key: 'eye', value: Eye): Promise<void>;
+  async setOverride(key: 'hat', value: Hat): Promise<void>;
+  async setOverride(key: 'shiny', value: boolean): Promise<void>;
+  async setOverride(key: 'species' | 'eye' | 'hat' | 'shiny', value: Species | Eye | Hat | boolean): Promise<void> {
     this.plugin.data.companionOverrides = {
       ...this.plugin.data.companionOverrides,
       [key]: value,
