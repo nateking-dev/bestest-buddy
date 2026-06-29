@@ -153,6 +153,9 @@ export class BuddyView extends ItemView {
     const colorOverride = this.plugin.data.companionOverrides?.color;
     if (colorOverride) {
       spriteEl.style.color = colorOverride;
+      if (companion.rarity === 'mythic') {
+        spriteEl.style.animation = 'none';
+      }
     } else if (companion.rarity !== 'mythic') {
       spriteEl.style.color = RARITY_COLORS[companion.rarity];
     }
