@@ -2,11 +2,13 @@ import { FuzzySuggestModal, Modal, Notice, Setting } from 'obsidian';
 import {
   EYES,
   HATS,
+  RARITIES,
   SPECIES,
   SPRITE_COLORS,
   STAT_NAMES,
   type Eye,
   type Hat,
+  type Rarity,
   type Species,
   type StatName,
 } from './lib/buddy/types';
@@ -72,6 +74,27 @@ export class HatPickerModal extends FuzzySuggestModal<Hat> {
     await this.plugin.store.setOverride('hat', item);
     this.plugin.refreshViews();
     new Notice(`Hat: ${item}`);
+  }
+}
+
+export class RarityPickerModal extends FuzzySuggestModal<Rarity> {
+  constructor(private readonly plugin: BestestBuddyPlugin) {
+    super(plugin.app);
+    this.setPlaceholder('Pick a rarity...');
+  }
+
+  getItems(): Rarity[] {
+    return [...RARITIES];
+  }
+
+  getItemText(item: Rarity): string {
+    return item;
+  }
+
+  async onChooseItem(item: Rarity): Promise<void> {
+    await this.plugin.store.setOverride('rarity', item);
+    this.plugin.refreshViews();
+    new Notice(`Rarity: ${item}`);
   }
 }
 

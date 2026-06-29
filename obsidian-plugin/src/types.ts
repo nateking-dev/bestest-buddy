@@ -1,4 +1,4 @@
-import type { Eye, Hat, Species, StatName, StoredCompanion } from './lib/buddy/types';
+import type { Eye, Hat, Rarity, Species, StatName, StoredCompanion } from './lib/buddy/types';
 
 export type BuddyFrequency = 'quiet' | 'normal' | 'chatty';
 export type BuddyMood = 'quiet' | 'curious' | 'pleased' | 'concerned' | 'sleepy';
@@ -55,6 +55,7 @@ export type CompanionOverrides = {
   species?: Species;
   eye?: Eye;
   hat?: Hat;
+  rarity?: Rarity;
   shiny?: boolean;
   color?: string;
   stats?: Partial<Record<StatName, number>>;
