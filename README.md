@@ -280,4 +280,8 @@ bestest-buddy/
 
 ## License & author
 
-Author: **Nathan King**. See the repository for license details.
+Author: **Nathan King**.
+
+With thanks to **Owen McGrath**, a valued contributor.
+
+See the repository for license details.
