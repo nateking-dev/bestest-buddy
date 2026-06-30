@@ -106,7 +106,6 @@ Bestest Buddy is not yet in the community plugin directory, so install it manual
 **1. Build it:**
 
 ```bash
-cd obsidian-plugin
 npm install
 npm run build
 ```
@@ -116,7 +115,7 @@ npm run build
 ```bash
 VAULT="/path/to/your/vault"
 mkdir -p "$VAULT/.obsidian/plugins/bestest-buddy"
-cp obsidian-plugin/{main.js,manifest.json,styles.css} \
+cp main.js manifest.json styles.css \
    "$VAULT/.obsidian/plugins/bestest-buddy/"
 ```
 
@@ -235,7 +234,6 @@ These limits are intentional:
 ## Development
 
 ```bash
-cd obsidian-plugin
 npm install
 
 npm run dev        # esbuild watch build
@@ -246,7 +244,7 @@ npm test           # vitest (unit tests)
 
 The plugin is written in TypeScript and bundled with esbuild into `main.js`. The distributable consists of `main.js`, `manifest.json`, and `styles.css`.
 
-Unit tests live in `obsidian-plugin/tests/` (vitest) and cover the pure generation and sprite logic. CI (`.github/workflows/ci.yml`) runs typecheck, tests, and build on every push and PR; tagging a commit `X.Y.Z` triggers `release.yml` to build and attach the release artifacts.
+Unit tests live in `tests/` (vitest) and cover the pure generation and sprite logic. CI (`.github/workflows/ci.yml`) runs typecheck, tests, and build on every push and PR; tagging a commit `X.Y.Z` triggers `release.yml` to build and attach the release artifacts.
 
 ---
 
@@ -254,29 +252,28 @@ Unit tests live in `obsidian-plugin/tests/` (vitest) and cover the pure generati
 
 ```
 bestest-buddy/
-├─ README.md                 ← you are here
-└─ obsidian-plugin/
-   ├─ manifest.json          plugin manifest (id, version, minAppVersion)
-   ├─ esbuild.config.mjs     build configuration
-   ├─ styles.css             panel and sprite styling (incl. mythic animations)
-   └─ src/
-      ├─ main.ts             plugin entry: lifecycle, commands, reaction logic
-      ├─ view.ts             sidebar panel rendering
-      ├─ events.ts           workspace/editor event detection
-      ├─ store.ts            persistence and companion state
-      ├─ settings.ts         settings tab
-      ├─ customize.ts        customization modals
-      ├─ llm.ts              OpenAI/Claude calls, prompts, local fallbacks
-      ├─ constants.ts        defaults and view type
-      ├─ types.ts            plugin/data/settings types
-      └─ lib/buddy/
-         ├─ companion.ts     seeded generation and rarity/stat rolls
-         ├─ sprites.ts       ASCII sprite frames per species
-         ├─ reactions.ts     local reaction text
-         └─ types.ts         species, rarities, hats, eyes, stats
+├─ manifest.json          plugin manifest (id, version, minAppVersion)
+├─ versions.json          plugin version → minimum app version map
+├─ esbuild.config.mjs     build configuration
+├─ styles.css             panel and sprite styling (incl. mythic animations)
+├─ main.js                bundled output (committed; also attached to releases)
+├─ tests/                 vitest unit tests
+└─ src/
+   ├─ main.ts             plugin entry: lifecycle, commands, reaction logic
+   ├─ view.ts             sidebar panel rendering
+   ├─ events.ts           workspace/editor event detection
+   ├─ store.ts            persistence and companion state
+   ├─ settings.ts         settings tab
+   ├─ customize.ts        customization modals
+   ├─ llm.ts              OpenAI/Claude calls, prompts, local fallbacks
+   ├─ constants.ts        defaults and view type
+   ├─ types.ts            plugin/data/settings types
+   └─ lib/buddy/
+      ├─ companion.ts     seeded generation and rarity/stat rolls
+      ├─ sprites.ts       ASCII sprite frames per species
+      ├─ reactions.ts     local reaction text
+      └─ types.ts         species, rarities, hats, eyes, stats
 ```
-
-> Note: `dist/` and `dist-server/` are gitignored build outputs and not part of the plugin source.
 
 ---
 
