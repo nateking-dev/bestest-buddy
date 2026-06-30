@@ -4,7 +4,7 @@ import {
   TextAreaComponent,
   WorkspaceLeaf,
 } from 'obsidian';
-import { renderSprite } from './lib/buddy/sprites';
+import { renderHat, renderSprite } from './lib/buddy/sprites';
 import { RARITY_COLORS, RARITY_LABELS, type Companion } from './lib/buddy/types';
 import { VIEW_TYPE_BUDDY } from './constants';
 import {
@@ -112,6 +112,7 @@ export class BuddyView extends ItemView {
     const patternClasses = this.plugin.getSessionPatterns().map((pattern) => `has-pattern-${this.toClassToken(pattern)}`);
     const microstateClass = `is-micro-${this.plugin.getSpriteMicrostate()}`;
     const rarityClass = companion?.rarity === 'mythic' ? 'is-rarity-mythic' : '';
+    const colorOverride = this.plugin.data.companionOverrides?.color;
     stage.className = [
       'bestest-buddy-stage',
       this.plugin.data.muted ? 'bestest-buddy-muted' : '',
@@ -119,6 +120,7 @@ export class BuddyView extends ItemView {
       sessionClass,
       microstateClass,
       rarityClass,
+      colorOverride ? 'is-color-overridden' : '',
       ...patternClasses,
     ]
       .filter(Boolean)
@@ -141,6 +143,25 @@ export class BuddyView extends ItemView {
       stage.createDiv({ cls: 'bestest-buddy-hearts', text: hearts });
     }
 
+    // Pass dynamic color through a CSS variable; the rarity rainbow (an animation) is
+    // suppressed via the `is-color-overridden` stage class when a custom color is set.
+    const applySpriteColor = (el: HTMLElement) => {
+      if (colorOverride) {
+        el.style.setProperty('--buddy-sprite-color', colorOverride);
+      } else if (companion.rarity !== 'mythic') {
+        el.style.setProperty('--buddy-sprite-color', RARITY_COLORS[companion.rarity]);
+      }
+    };
+
+    const hat = renderHat(companion);
+    if (hat) {
+      const hatEl = stage.createEl('pre', { cls: 'bestest-buddy-hat' });
+      hatEl.setText(hat.line);
+      // Slide the hat to sit over the head; one body column = 1ch minus the sprite's letter-spacing.
+      hatEl.style.setProperty('--buddy-hat-shift', `calc(${hat.offsetColumns} * (1ch - 0.08em))`);
+      applySpriteColor(hatEl);
+    }
+
     const spriteEl = stage.createEl('pre', { cls: 'bestest-buddy-sprite' });
     spriteEl.addEventListener('mouseenter', () => {
       if (this.rubStartedAt === null && !this.plugin.isPetting() && !this.plugin.busy) {
@@ -150,15 +171,7 @@ export class BuddyView extends ItemView {
     spriteEl.addEventListener('mouseleave', () => {
       this.rubStartedAt = null;
     });
-    const colorOverride = this.plugin.data.companionOverrides?.color;
-    if (colorOverride) {
-      spriteEl.style.color = colorOverride;
-      if (companion.rarity === 'mythic') {
-        spriteEl.style.animation = 'none';
-      }
-    } else if (companion.rarity !== 'mythic') {
-      spriteEl.style.color = RARITY_COLORS[companion.rarity];
-    }
+    applySpriteColor(spriteEl);
     const spriteLines = renderSprite(companion, this.plugin.currentSpriteFrame);
     spriteEl.setText(
       this.plugin.currentSpriteBlink

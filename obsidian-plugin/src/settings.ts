@@ -1,6 +1,19 @@
 import { PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type BestestBuddyPlugin from './main';
+import type { LLMProvider } from './types';
+
+// Flag an obvious provider/model mismatch (e.g. a Claude model under the OpenAI provider).
+function modelProviderMismatch(provider: LLMProvider, model: string): string | null {
+  const m = model.toLowerCase();
+  if (provider === 'openai' && m.includes('claude')) {
+    return 'This looks like a Claude model, but the provider is set to OpenAI.';
+  }
+  if (provider === 'claude' && m.includes('gpt')) {
+    return 'This looks like an OpenAI model, but the provider is set to Claude.';
+  }
+  return null;
+}
 
 export class BuddySettingTab extends PluginSettingTab {
   constructor(private readonly plugin: BestestBuddyPlugin) {
@@ -22,14 +35,15 @@ export class BuddySettingTab extends PluginSettingTab {
           .addOption('claude', 'Claude (Anthropic)')
           .setValue(this.plugin.data.settings.provider)
           .onChange(async (value) => {
-            this.plugin.data.settings.provider = value as typeof this.plugin.data.settings.provider;
+            this.plugin.data.settings.provider = value as LLMProvider;
             await this.plugin.store.save();
+            refreshModelWarning();
           }),
       );
 
     new Setting(containerEl)
       .setName('OpenAI API key')
-      .setDesc('Used when provider is set to OpenAI.')
+      .setDesc('Used when provider is set to OpenAI. Stored unencrypted in this vault’s plugin data.')
       .addText((text) => {
         text.inputEl.type = 'password';
         text
@@ -43,7 +57,7 @@ export class BuddySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Claude API key')
-      .setDesc('Used when provider is set to Claude (Anthropic).')
+      .setDesc('Used when provider is set to Claude (Anthropic). Stored unencrypted in this vault’s plugin data.')
       .addText((text) => {
         text.inputEl.type = 'password';
         text
@@ -65,8 +79,22 @@ export class BuddySettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.data.settings.model = value.trim() || DEFAULT_SETTINGS.model;
             await this.plugin.store.save();
+            refreshModelWarning();
           }),
       );
+
+    const modelWarning = containerEl.createEl('p', {
+      cls: 'bestest-buddy-settings-warning is-hidden',
+    });
+    const refreshModelWarning = (): void => {
+      const message = modelProviderMismatch(
+        this.plugin.data.settings.provider,
+        this.plugin.data.settings.model,
+      );
+      modelWarning.setText(message ?? '');
+      modelWarning.toggleClass('is-hidden', message === null);
+    };
+    refreshModelWarning();
 
     new Setting(containerEl)
       .setName('Ambient reactions')
@@ -122,16 +150,6 @@ export class BuddySettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Enable write actions')
-      .setDesc('Reserved for explicit future note-writing actions. No autonomous writes happen in v1.')
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.data.settings.enableWriteActions).onChange(async (value) => {
-          this.plugin.data.settings.enableWriteActions = value;
-          await this.plugin.store.save();
-        }),
-      );
-
-    new Setting(containerEl)
       .setName('Minimal mode')
       .setDesc('Show only the sprite in the sidebar panel.')
       .addToggle((toggle) =>
@@ -141,8 +159,6 @@ export class BuddySettingTab extends PluginSettingTab {
           this.plugin.refreshViews();
         }),
       );
-
-    let snarkWarning: HTMLParagraphElement;
 
     new Setting(containerEl)
       .setName('Snark level')
@@ -154,18 +170,15 @@ export class BuddySettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.data.settings.snarkLevel = value;
-            snarkWarning.style.display = value > 90 ? 'block' : 'none';
+            snarkWarning.toggleClass('is-hidden', value <= 90);
             await this.plugin.store.save();
           }),
       );
 
-    snarkWarning = containerEl.createEl('p', {
+    const snarkWarning = containerEl.createEl('p', {
+      cls: 'bestest-buddy-settings-warning',
       text: 'Warning: snark level above 90 may use significantly more tokens.',
     });
-    snarkWarning.style.color = 'var(--color-red)';
-    snarkWarning.style.fontSize = '0.85em';
-    snarkWarning.style.marginTop = '4px';
-    snarkWarning.style.display =
-      this.plugin.data.settings.snarkLevel > 90 ? 'block' : 'none';
+    snarkWarning.toggleClass('is-hidden', this.plugin.data.settings.snarkLevel <= 90);
   }
 }
