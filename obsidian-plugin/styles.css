@@ -82,6 +82,10 @@
 .bestest-buddy-speechArea {
   min-height: 88px;
   margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .bestest-buddy-bubble {
@@ -105,6 +109,8 @@
 
 .bestest-buddy-hearts {
   margin-bottom: 8px;
+  justify-self: center;
+  text-align: center;
   color: var(--text-accent);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 16px;
@@ -114,14 +120,31 @@
   transition: opacity 240ms ease, transform 240ms ease;
 }
 
-.bestest-buddy-sprite {
+.bestest-buddy-hat {
   margin: 0;
-  color: var(--buddy-accent);
+  margin-bottom: -0.55em;
+  justify-self: center;
+  text-align: center;
+  color: var(--buddy-sprite-color, var(--buddy-accent));
+  transform: translateX(var(--buddy-hat-shift, 0));
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 19px;
   line-height: 0.94;
   letter-spacing: -0.08em;
-  transform: translateX(-0.24em);
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+.bestest-buddy-sprite {
+  margin: 0;
+  justify-self: center;
+  text-align: center;
+  color: var(--buddy-sprite-color, var(--buddy-accent));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 19px;
+  line-height: 0.94;
+  letter-spacing: -0.08em;
   transform-origin: center bottom;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.06));
   transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
@@ -129,6 +152,7 @@
 
 .bestest-buddy-nameplate {
   margin-top: 12px;
+  justify-self: center;
   display: inline-flex;
   gap: 8px;
   align-items: center;
@@ -390,7 +414,7 @@
 }
 
 .bestest-buddy-stage.is-session-flowing .bestest-buddy-sprite {
-  transform: translateX(-0.24em) translateY(-2px);
+  transform: translateY(-2px);
 }
 
 .bestest-buddy-stage.is-session-revising,
@@ -406,7 +430,7 @@
 }
 
 .bestest-buddy-stage.is-session-stuck .bestest-buddy-sprite {
-  transform: translateX(-0.2em) translateY(1px);
+  transform: translateY(1px);
 }
 
 .bestest-buddy-stage.is-session-returning,
@@ -417,7 +441,7 @@
 
 .bestest-buddy-stage.is-micro-settled .bestest-buddy-sprite {
   opacity: 0.92;
-  transform: translateX(-0.24em) translateY(1px) scale(0.985);
+  transform: translateY(1px) scale(0.985);
   filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 
@@ -505,8 +529,15 @@
   animation: bestest-buddy-mythic-bg 6s ease infinite, bestest-buddy-mythic-border 6s linear infinite;
 }
 
-.bestest-buddy-stage.is-rarity-mythic .bestest-buddy-sprite {
+.bestest-buddy-stage.is-rarity-mythic .bestest-buddy-sprite,
+.bestest-buddy-stage.is-rarity-mythic .bestest-buddy-hat {
   animation: bestest-buddy-mythic-text 3s linear infinite;
+}
+
+/* A custom sprite color wins over the mythic rainbow (must follow the rule above). */
+.bestest-buddy-stage.is-color-overridden .bestest-buddy-sprite,
+.bestest-buddy-stage.is-color-overridden .bestest-buddy-hat {
+  animation: none;
 }
 
 .bestest-buddy-stage.is-rarity-mythic .bestest-buddy-nameplate {
@@ -523,4 +554,28 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* Color picker swatches (customize modal) */
+.bestest-buddy-color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+
+.bestest-buddy-color-swatch {
+  border-left: 4px solid var(--swatch-color, transparent);
+  text-align: left;
+}
+
+/* Inline warnings in the settings tab */
+.bestest-buddy-settings-warning {
+  color: var(--text-error);
+  font-size: 0.85em;
+  margin-top: 4px;
+}
+
+.bestest-buddy-settings-warning.is-hidden {
+  display: none;
 }

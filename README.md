@@ -168,7 +168,6 @@ All commands are available from the command palette under **Bestest Buddy**. A `
 | **Reaction frequency** | Normal | `Quiet`, `Normal`, or `Chatty` |
 | **Writing burst threshold** | 50 | New words that trigger a writing-burst reaction (minimum 10) |
 | **Include current note context** | on | Pass note title and excerpt to replies |
-| **Enable write actions** | off | Reserved for future note-writing features; no autonomous writes happen today |
 | **Minimal mode** | off | Show only the sprite in the panel |
 | **Snark level** | 50 | 0 = rare and gentle, 100 = constant and merciless. Values above 90 can use significantly more tokens. |
 
@@ -242,9 +241,12 @@ npm install
 npm run dev        # esbuild watch build
 npm run build      # production build
 npm run typecheck  # tsc --noEmit
+npm test           # vitest (unit tests)
 ```
 
 The plugin is written in TypeScript and bundled with esbuild into `main.js`. The distributable consists of `main.js`, `manifest.json`, and `styles.css`.
+
+Unit tests live in `obsidian-plugin/tests/` (vitest) and cover the pure generation and sprite logic. CI (`.github/workflows/ci.yml`) runs typecheck, tests, and build on every push and PR; tagging a commit `X.Y.Z` triggers `release.yml` to build and attach the release artifacts.
 
 ---
 
@@ -284,4 +286,4 @@ Author: **Nathan King**.
 
 With thanks to **Owen McGrath**, a valued contributor.
 
-See the repository for license details.
+Licensed under the MIT License — see [LICENSE](LICENSE).

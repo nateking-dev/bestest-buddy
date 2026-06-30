@@ -109,8 +109,8 @@ export class ColorPickerModal extends Modal {
 
     const grid = contentEl.createDiv({ cls: 'bestest-buddy-color-grid' });
     for (const { label, value } of SPRITE_COLORS) {
-      const btn = grid.createEl('button', { text: label });
-      btn.style.borderLeft = `4px solid ${value}`;
+      const btn = grid.createEl('button', { cls: 'bestest-buddy-color-swatch', text: label });
+      btn.style.setProperty('--swatch-color', value);
       btn.addEventListener('click', async () => {
         await this.plugin.store.setColorOverride(value);
         this.plugin.refreshViews();
