@@ -8,10 +8,6 @@ on:
     tags:
       - '*.*.*'
 
-defaults:
-  run:
-    working-directory: obsidian-plugin
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -23,7 +19,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: obsidian-plugin/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
@@ -32,7 +27,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            obsidian-plugin/main.js
-            obsidian-plugin/manifest.json
-            obsidian-plugin/styles.css
+            main.js
+            manifest.json
+            styles.css
           fail_on_unmatched_files: true
