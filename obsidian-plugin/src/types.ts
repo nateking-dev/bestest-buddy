@@ -46,7 +46,6 @@ export type BuddyPluginSettings = {
   frequency: BuddyFrequency;
   burstThreshold: number;
   includeCurrentNoteInDirectReplies: boolean;
-  enableWriteActions: boolean;
   minimalMode: boolean;
   snarkLevel: number;
 };
@@ -62,6 +61,8 @@ export type CompanionOverrides = {
 };
 
 export type BuddyPluginData = {
+  // Schema version of persisted data; bumped when the shape changes so load() can migrate.
+  dataVersion?: number;
   vaultSeed?: string;
   storedCompanion?: StoredCompanion;
   companionOverrides?: CompanionOverrides;
