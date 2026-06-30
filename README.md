@@ -286,4 +286,4 @@ Author: **Nathan King**.
 
 With thanks to **Owen McGrath**, a valued contributor.
 
-See the repository for license details.
+Licensed under the MIT License — see [LICENSE](LICENSE).
