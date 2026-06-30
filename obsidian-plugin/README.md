@@ -14,6 +14,7 @@ npm install
 npm run dev        # esbuild watch build
 npm run build      # production build → main.js
 npm run typecheck  # tsc --noEmit
+npm test           # vitest (unit tests in tests/)
 ```
 
 The plugin is written in TypeScript and bundled with esbuild. The distributable consists of three files: `main.js`, `manifest.json`, and `styles.css`.

@@ -1,16 +1,25 @@
 import { Notice } from 'obsidian';
 import { createStableUserSeed, mergeCompanion, roll } from './lib/buddy/companion';
 import type { Companion, Eye, Hat, Rarity, Species, StatName, StoredCompanion } from './lib/buddy/types';
-import { DEFAULT_SETTINGS, MAX_RECENT_EVENTS } from './constants';
+import { CURRENT_DATA_VERSION, DEFAULT_SETTINGS, MAX_RECENT_EVENTS } from './constants';
 import type BestestBuddyPlugin from './main';
-import type { BuddyEvent, BuddyMood, BuddyPluginData, BuddySessionMode, CompanionOverrides } from './types';
+import type {
+  BuddyEvent,
+  BuddyMood,
+  BuddyPluginData,
+  BuddyPluginSettings,
+  BuddySessionMode,
+  CompanionOverrides,
+} from './types';
 
 export class BuddyStore {
   constructor(private readonly plugin: BestestBuddyPlugin) {}
 
   async load(): Promise<BuddyPluginData> {
     const raw = (await this.plugin.loadData()) as Partial<BuddyPluginData> | null;
+    const fromVersion = raw?.dataVersion ?? 0;
     const data: BuddyPluginData = {
+      dataVersion: CURRENT_DATA_VERSION,
       vaultSeed: raw?.vaultSeed,
       storedCompanion: raw?.storedCompanion,
       companionOverrides: raw?.companionOverrides,
@@ -21,12 +30,27 @@ export class BuddyStore {
       sessionState: raw?.sessionState,
       settings: {
         ...DEFAULT_SETTINGS,
-        ...(raw?.settings ?? {}),
+        ...this.migrateSettings(raw?.settings),
       },
     };
 
     this.plugin.data = data;
+    // Persist once if the stored shape was older, so the migrated data is written back.
+    if (fromVersion < CURRENT_DATA_VERSION) {
+      await this.save();
+    }
     return data;
+  }
+
+  // Drop fields removed across schema versions before merging onto the defaults.
+  private migrateSettings(raw: unknown): Partial<BuddyPluginSettings> {
+    if (!raw || typeof raw !== 'object') {
+      return {};
+    }
+    // v1: `enableWriteActions` was removed (the feature never shipped).
+    const { enableWriteActions: _removed, ...rest } = raw as Record<string, unknown>;
+    void _removed;
+    return rest as Partial<BuddyPluginSettings>;
   }
 
   async save(): Promise<void> {
