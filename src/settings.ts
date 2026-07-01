@@ -24,8 +24,6 @@ export class BuddySettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName('Bestest Buddy').setHeading();
-
     new Setting(containerEl)
       .setName('LLM provider')
       .setDesc('Which API to use for hatch and buddy reactions.')
