@@ -112,7 +112,7 @@
   justify-self: center;
   text-align: center;
   color: var(--text-accent);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 16px;
   line-height: 1;
   letter-spacing: -0.06em;
@@ -127,7 +127,7 @@
   text-align: center;
   color: var(--buddy-sprite-color, var(--buddy-accent));
   transform: translateX(var(--buddy-hat-shift, 0));
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 19px;
   line-height: 0.94;
   letter-spacing: -0.08em;
@@ -141,7 +141,7 @@
   justify-self: center;
   text-align: center;
   color: var(--buddy-sprite-color, var(--buddy-accent));
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 19px;
   line-height: 0.94;
   letter-spacing: -0.08em;
