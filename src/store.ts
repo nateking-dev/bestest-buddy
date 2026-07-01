@@ -12,6 +12,13 @@ import type {
   CompanionOverrides,
 } from './types';
 
+// Note content must not land in data.json: excerpt and message only matter for the
+// in-flight LLM call, while the persisted event log is type/time/title metadata.
+function stripNoteContent(event: BuddyEvent): BuddyEvent {
+  const { excerpt: _excerpt, message: _message, ...rest } = event;
+  return rest;
+}
+
 export class BuddyStore {
   constructor(private readonly plugin: BestestBuddyPlugin) {}
 
@@ -25,7 +32,7 @@ export class BuddyStore {
       companionOverrides: raw?.companionOverrides,
       muted: raw?.muted ?? false,
       lastReactionAt: raw?.lastReactionAt,
-      recentEvents: raw?.recentEvents ?? [],
+      recentEvents: (raw?.recentEvents ?? []).map(stripNoteContent),
       moodState: raw?.moodState,
       sessionState: raw?.sessionState,
       settings: {
@@ -175,7 +182,10 @@ export class BuddyStore {
   }
 
   async appendEvent(event: BuddyEvent): Promise<void> {
-    this.plugin.data.recentEvents = [...this.plugin.data.recentEvents, event].slice(-MAX_RECENT_EVENTS);
+    this.plugin.data.recentEvents = [
+      ...this.plugin.data.recentEvents,
+      stripNoteContent(event),
+    ].slice(-MAX_RECENT_EVENTS);
     await this.save();
   }
 

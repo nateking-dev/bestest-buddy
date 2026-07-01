@@ -19,6 +19,7 @@ const BUBBLE_REVEAL_MS = 850;
 const BUBBLE_HOLD_MS = 4_200;
 const BUBBLE_FADE_MS = 3_600;
 const PET_BURST_MS = 2_800;
+const PET_REACTION_COOLDOWN_MS = 30_000;
 const IDLE_SEQUENCE = [0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 2, 0, 0, 0, 0] as const;
 const PET_HEARTS = [
   '   <3    <3   ',
@@ -273,6 +274,7 @@ export default class BestestBuddyPlugin extends Plugin {
   petStartedAt: number | null = null;
   ambientReactionStartedAt: number | null = null;
 
+  private lastPetReactionAt = 0;
   private spriteTimer: number | null = null;
   private bubbleTimer: number | null = null;
   private chattyTickTimer: number | null = null;
@@ -502,6 +504,12 @@ export default class BestestBuddyPlugin extends Plugin {
     }
     this.petStartedAt = Date.now();
     this.refreshViews(true);
+    // The hearts animation always plays, but the LLM reaction is rate-limited:
+    // hover-petting would otherwise fire unbounded forced API calls.
+    if (this.busy || Date.now() - this.lastPetReactionAt < PET_REACTION_COOLDOWN_MS) {
+      return;
+    }
+    this.lastPetReactionAt = Date.now();
     await this.handleBuddyEvent({
       type: 'pet',
       at: Date.now(),
@@ -810,7 +818,7 @@ export default class BestestBuddyPlugin extends Plugin {
       lines.push(editor.getLine(i));
     }
     const compact = lines.join(' ').replace(/\s+/g, ' ').trim();
-    return compact || undefined;
+    return compact ? compact.slice(0, 320) : undefined;
   }
 
   private async readNoteExcerpt(file: TFile): Promise<string | undefined> {

@@ -137,7 +137,7 @@ export class BuddySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Include current note context')
-      .setDesc('Pass the current note title and excerpt to direct buddy replies.')
+      .setDesc('Share the current note title and a short excerpt with the LLM provider for direct replies and ambient reactions. Note content is never stored in plugin data.')
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.data.settings.includeCurrentNoteInDirectReplies)
