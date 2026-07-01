@@ -24,7 +24,7 @@ export class BuddySettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'Bestest Buddy' });
+    new Setting(containerEl).setName('Bestest Buddy').setHeading();
 
     new Setting(containerEl)
       .setName('LLM provider')

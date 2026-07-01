@@ -28,10 +28,12 @@ export class SpeciesPickerModal extends FuzzySuggestModal<Species> {
     return item;
   }
 
-  async onChooseItem(item: Species): Promise<void> {
-    await this.plugin.store.setOverride('species', item);
-    this.plugin.refreshViews();
-    new Notice(`Species: ${item}`);
+  onChooseItem(item: Species): void {
+    void (async () => {
+      await this.plugin.store.setOverride('species', item);
+      this.plugin.refreshViews();
+      new Notice(`Species: ${item}`);
+    })();
   }
 }
 
@@ -49,10 +51,12 @@ export class EyePickerModal extends FuzzySuggestModal<Eye> {
     return item;
   }
 
-  async onChooseItem(item: Eye): Promise<void> {
-    await this.plugin.store.setOverride('eye', item);
-    this.plugin.refreshViews();
-    new Notice(`Eye style: ${item}`);
+  onChooseItem(item: Eye): void {
+    void (async () => {
+      await this.plugin.store.setOverride('eye', item);
+      this.plugin.refreshViews();
+      new Notice(`Eye style: ${item}`);
+    })();
   }
 }
 
@@ -70,10 +74,12 @@ export class HatPickerModal extends FuzzySuggestModal<Hat> {
     return item;
   }
 
-  async onChooseItem(item: Hat): Promise<void> {
-    await this.plugin.store.setOverride('hat', item);
-    this.plugin.refreshViews();
-    new Notice(`Hat: ${item}`);
+  onChooseItem(item: Hat): void {
+    void (async () => {
+      await this.plugin.store.setOverride('hat', item);
+      this.plugin.refreshViews();
+      new Notice(`Hat: ${item}`);
+    })();
   }
 }
 
@@ -91,10 +97,12 @@ export class RarityPickerModal extends FuzzySuggestModal<Rarity> {
     return item;
   }
 
-  async onChooseItem(item: Rarity): Promise<void> {
-    await this.plugin.store.setOverride('rarity', item);
-    this.plugin.refreshViews();
-    new Notice(`Rarity: ${item}`);
+  onChooseItem(item: Rarity): void {
+    void (async () => {
+      await this.plugin.store.setOverride('rarity', item);
+      this.plugin.refreshViews();
+      new Notice(`Rarity: ${item}`);
+    })();
   }
 }
 
@@ -111,11 +119,13 @@ export class ColorPickerModal extends Modal {
     for (const { label, value } of SPRITE_COLORS) {
       const btn = grid.createEl('button', { cls: 'bestest-buddy-color-swatch', text: label });
       btn.style.setProperty('--swatch-color', value);
-      btn.addEventListener('click', async () => {
-        await this.plugin.store.setColorOverride(value);
-        this.plugin.refreshViews();
-        new Notice(`Color: ${label}`);
-        this.close();
+      btn.addEventListener('click', () => {
+        void (async () => {
+          await this.plugin.store.setColorOverride(value);
+          this.plugin.refreshViews();
+          new Notice(`Color: ${label}`);
+          this.close();
+        })();
       });
     }
 
@@ -193,7 +203,7 @@ export class StatsModal extends Modal {
           .setButtonText('Save')
           .setCta()
           .onClick(async () => {
-            await this.plugin.store.setStatOverrides(this.pending as Record<StatName, number>);
+            await this.plugin.store.setStatOverrides(this.pending);
             this.plugin.refreshViews();
             new Notice('Stats updated.');
             this.close();

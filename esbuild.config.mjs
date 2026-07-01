@@ -1,5 +1,5 @@
 import esbuild from 'esbuild';
-import builtins from 'builtin-modules';
+import { builtinModules as builtins } from 'node:module';
 import process from 'node:process';
 
 const production = process.argv[2] === 'production';
