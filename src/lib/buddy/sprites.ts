@@ -144,12 +144,12 @@ function glyphCenter(s: string): number {
   [...s].forEach((ch, i) => {
     if (ch !== ' ') cols.push(i);
   });
-  return cols.length ? (cols[0]! + cols[cols.length - 1]!) / 2 : (s.length - 1) / 2;
+  return cols.length ? (cols[0] + cols[cols.length - 1]) / 2 : (s.length - 1) / 2;
 }
 
 export function renderSprite(companion: Companion, frame: number): string[] {
   const speciesFrames = BODIES[companion.species];
-  const frameLines = speciesFrames[frame % speciesFrames.length]!;
+  const frameLines = speciesFrames[frame % speciesFrames.length];
   const lines = frameLines.map((line) => line.replaceAll('{E}', companion.eye));
   // Head-at-top species need a blank row above so the hat (drawn separately and
   // floated above row 1) doesn't land on their ears/cap.

@@ -50,7 +50,7 @@ export class BuddyStore {
     // v1: `enableWriteActions` was removed (the feature never shipped).
     const { enableWriteActions: _removed, ...rest } = raw as Record<string, unknown>;
     void _removed;
-    return rest as Partial<BuddyPluginSettings>;
+    return rest;
   }
 
   async save(): Promise<void> {

@@ -33,7 +33,7 @@ function hashString(input: string): number {
 }
 
 function pick<T>(rng: () => number, options: readonly T[]): T {
-  return options[Math.floor(rng() * options.length)]!;
+  return options[Math.floor(rng() * options.length)];
 }
 
 function rollRarity(rng: () => number): Rarity {

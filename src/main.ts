@@ -15,7 +15,6 @@ import { BuddyView } from './view';
 import { ColorPickerModal, EyePickerModal, HatPickerModal, RarityPickerModal, SpeciesPickerModal, StatsModal } from './customize';
 
 const SPRITE_TICK_MS = 440;
-const BUBBLE_SHOW_MS = 10_000;
 const BUBBLE_REVEAL_MS = 850;
 const BUBBLE_HOLD_MS = 4_200;
 const BUBBLE_FADE_MS = 3_600;
@@ -446,7 +445,7 @@ export default class BestestBuddyPlugin extends Plugin {
         await leaf.setViewState({ type: VIEW_TYPE_BUDDY, active: true });
       }
 
-      workspace.revealLeaf(leaf);
+      await workspace.revealLeaf(leaf);
     } catch (error) {
       console.error('Bestest Buddy failed to activate view', error);
     }

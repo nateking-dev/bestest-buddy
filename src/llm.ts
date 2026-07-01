@@ -2,9 +2,9 @@ import { requestUrl } from 'obsidian';
 import { buildFallbackReaction } from './lib/buddy/reactions';
 import { RARITY_LABELS, STAT_NAMES, type Companion, type CompanionBones } from './lib/buddy/types';
 import type BestestBuddyPlugin from './main';
-import type { BuddyEvent, BuddySessionMode } from './types';
+import type { BuddyEvent } from './types';
 
-function compactStats(stats: Companion['stats'] | CompanionBones['stats']): string {
+function compactStats(stats: Companion['stats']): string {
   return STAT_NAMES.map((stat) => `${stat}:${stats[stat]}`).join(', ');
 }
 
@@ -281,8 +281,8 @@ function fallbackSoul(bones: CompanionBones): { name: string; personality: strin
   };
   const suffixes = ['buddy', 'bean', 'patch', 'wink', 'mote', 'crumb'];
   const total = Object.values(bones.stats).reduce((sum, value) => sum + value, 0);
-  const first = names[bones.species][total % names[bones.species].length]!;
-  const second = suffixes[(total + bones.species.length) % suffixes.length]!;
+  const first = names[bones.species][total % names[bones.species].length];
+  const second = suffixes[(total + bones.species.length) % suffixes.length];
   return {
     name: `${first} ${second}`,
     personality: `${RARITY_LABELS[bones.rarity].toLowerCase()} ${bones.species} energy, strongest in ${leadStat.toLowerCase()}, with short, opinionated buddy replies.`,

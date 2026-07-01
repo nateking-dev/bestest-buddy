@@ -56,7 +56,7 @@ export class BuddyEventController {
 
     this.plugin.registerEvent(
       this.plugin.app.workspace.on('editor-change', (editor, view) => {
-        void this.handleEditorChange(editor, view.file as TFile | null);
+        void this.handleEditorChange(editor, view.file);
       }),
     );
   }
@@ -170,21 +170,23 @@ export class BuddyEventController {
       this.lastPauseAt = null;
     }
 
-    this.pauseTimer = window.setTimeout(async () => {
-      this.typingStartedAt = null;
-      this.lastPauseAt = Date.now();
-      const pausedText = editor.getValue();
-      const pausedWordCount = extractWordCount(pausedText);
-      if (pausedWordCount >= 80 || this.sessionChangeCount >= 12) {
-        await this.plugin.handleBuddyEvent({
-          type: 'long_pause',
-          at: Date.now(),
-          notePath: file?.path,
-          noteTitle: file?.basename,
-          wordCount: pausedWordCount,
-          excerpt: excerptAround(editor),
-        });
-      }
+    this.pauseTimer = window.setTimeout(() => {
+      void (async () => {
+        this.typingStartedAt = null;
+        this.lastPauseAt = Date.now();
+        const pausedText = editor.getValue();
+        const pausedWordCount = extractWordCount(pausedText);
+        if (pausedWordCount >= 80 || this.sessionChangeCount >= 12) {
+          await this.plugin.handleBuddyEvent({
+            type: 'long_pause',
+            at: Date.now(),
+            notePath: file?.path,
+            noteTitle: file?.basename,
+            wordCount: pausedWordCount,
+            excerpt: excerptAround(editor),
+          });
+        }
+      })();
     }, 35_000);
 
     this.lastTextLength = textLength;
