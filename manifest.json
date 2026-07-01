@@ -1,7 +1,7 @@
 {
   "id": "bestest-buddy",
   "name": "Bestest Buddy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.7.2",
   "description": "A vault-scoped writing companion that lives in your sidebar — hatches an ASCII pet per vault and reacts to how you write.",
   "author": "Nathan King",
