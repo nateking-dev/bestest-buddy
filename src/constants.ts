@@ -5,7 +5,8 @@ export const MAX_RECENT_EVENTS = 20;
 
 // Current persisted-data schema version. Bump when the BuddyPluginData shape
 // changes in a way that needs migrating in BuddyStore.load().
-export const CURRENT_DATA_VERSION = 1;
+// v2: note content (event excerpt/message) is no longer persisted; load() scrubs it.
+export const CURRENT_DATA_VERSION = 2;
 
 export const DEFAULT_SETTINGS: BuddyPluginSettings = {
   provider: 'openai',
