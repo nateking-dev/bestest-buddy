@@ -68,14 +68,7 @@ export class BuddyEventController {
       return;
     }
 
-    if (file.path !== this.lastFilePath) {
-      this.lastFilePath = file.path;
-      this.typingStartedAt = null;
-      this.sessionStartWordCount = 0;
-      this.sessionChangeCount = 0;
-      this.lastTextLength = 0;
-      this.firedSteadySession = false;
-    }
+    this.resetTypingStateIfFileChanged(file.path);
 
     await this.plugin.handleBuddyEvent({
       type: 'note_opened',
@@ -94,7 +87,26 @@ export class BuddyEventController {
     }
   }
 
+  // Obsidian does not fire active-leaf-change when the same leaf navigates to a
+  // different file (e.g. following a link in the current pane), so the edit path
+  // must also detect file switches itself — otherwise lastTextLength carries over
+  // and the first keystroke in a shorter note fires a false revision_spike.
+  private resetTypingStateIfFileChanged(path: string): void {
+    if (path === this.lastFilePath) {
+      return;
+    }
+    this.lastFilePath = path;
+    this.typingStartedAt = null;
+    this.sessionStartWordCount = 0;
+    this.sessionChangeCount = 0;
+    this.lastTextLength = 0;
+    this.firedSteadySession = false;
+  }
+
   private async handleEditorChange(editor: Editor, file: TFile | null): Promise<void> {
+    if (file) {
+      this.resetTypingStateIfFileChanged(file.path);
+    }
     const text = editor.getValue();
     const wordCount = extractWordCount(text);
     const now = Date.now();
