@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Editor, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
+import type { Editor } from 'obsidian';
 import { BuddyEventController } from '../src/events';
 import type BestestBuddyPlugin from '../src/main';
 import type { BuddyEvent } from '../src/types';
@@ -67,5 +68,46 @@ describe('BuddyEventController revision detection', () => {
     await controller.handleEditorChange(fakeEditor(words(100)), fakeFile('short.md'));
 
     expect(events.map((e) => e.type)).not.toContain('revision_spike');
+  });
+});
+
+describe('vault create subscription (regression: #39)', () => {
+  it('ignores the startup replay of create events, then reacts to real ones', () => {
+    const events: BuddyEvent[] = [];
+    let layoutReadyCallback: (() => void) | undefined;
+    const vaultHandlers = new Map<string, (file: unknown) => void>();
+    const plugin = {
+      registerEvent: () => {},
+      handleBuddyEvent: async (event: BuddyEvent) => {
+        events.push(event);
+      },
+      app: {
+        workspace: {
+          on: () => ({}),
+          onLayoutReady: (callback: () => void) => {
+            layoutReadyCallback = callback;
+          },
+        },
+        vault: {
+          on: (name: string, handler: (file: unknown) => void) => {
+            vaultHandlers.set(name, handler);
+            return {};
+          },
+        },
+      },
+    } as unknown as BestestBuddyPlugin;
+
+    new BuddyEventController(plugin).register();
+
+    // Obsidian replays `create` for every existing file between plugin onload
+    // and layout-ready; the plugin must not be listening yet.
+    expect(vaultHandlers.has('create')).toBe(false);
+
+    layoutReadyCallback?.();
+    expect(vaultHandlers.has('create')).toBe(true);
+
+    const file = Object.assign(new TFile(), { path: 'fresh.md', basename: 'fresh' });
+    vaultHandlers.get('create')?.(file);
+    expect(events.map((e) => e.type)).toEqual(['new_note_created']);
   });
 });
