@@ -471,6 +471,7 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   async ensureHatched(): Promise<void> {
+    if (this.busy) return;
     const existing = this.store.getCompanion();
     if (existing) {
       this.refreshViews();
@@ -528,6 +529,11 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   async sendDirectMessage(message: string, file?: TFile | null): Promise<void> {
+    // The view disables Send while busy, but the command palette does not.
+    if (this.busy) {
+      new Notice('Buddy is busy with another reply right now.');
+      return;
+    }
     const companion = this.store.getCompanion();
     if (!companion) {
       await this.ensureHatched();
@@ -775,6 +781,9 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   private async fireChattyTick(): Promise<void> {
+    // force=true below skips handleBuddyEvent's busy guard, so overlap with an
+    // in-flight reply (and a clobbered busy flag) must be prevented here.
+    if (this.busy) return;
     if (this.data.settings.frequency !== 'chatty') return;
     if (this.data.muted || !this.data.settings.ambientEnabled) return;
     if (!this.store.getCompanion()) return;
