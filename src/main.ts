@@ -471,6 +471,7 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   async ensureHatched(): Promise<void> {
+    if (this.busy) return;
     const existing = this.store.getCompanion();
     if (existing) {
       this.refreshViews();
@@ -528,22 +529,28 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   async sendDirectMessage(message: string, file?: TFile | null): Promise<void> {
+    // The view disables Send while busy, but the command palette does not.
+    if (this.busy) {
+      new Notice('Buddy is busy with another reply right now.');
+      return;
+    }
     const companion = this.store.getCompanion();
     if (!companion) {
       await this.ensureHatched();
       return;
     }
 
-    const targetFile = file ?? this.app.workspace.getActiveFile();
-    const directContext =
-      this.data.settings.includeCurrentNoteInDirectReplies && targetFile
-        ? await this.resolveDirectNoteContext(targetFile)
-        : undefined;
-
+    // Flip busy before any awaited work: an await while busy is still false
+    // is a window for another entry point to start an overlapping request.
     this.busy = true;
     this.lastError = null;
     this.refreshViews();
     try {
+      const targetFile = file ?? this.app.workspace.getActiveFile();
+      const directContext =
+        this.data.settings.includeCurrentNoteInDirectReplies && targetFile
+          ? await this.resolveDirectNoteContext(targetFile)
+          : undefined;
       const mood = currentMoodMode(this);
       const sessionMode = currentSessionMode(this);
       const reaction = await generateReaction(this, {
@@ -598,7 +605,14 @@ export default class BestestBuddyPlugin extends Plugin {
 
     await this.store.appendEvent(event);
 
-    if (!force) {
+    if (force) {
+      // Callers check busy before invoking, but the appendEvent await above
+      // yields; re-check so a request accepted in that window is not overlapped.
+      // The event is already logged, which is all a skipped reaction loses.
+      if (this.busy) {
+        return;
+      }
+    } else {
       if (this.busy || this.ambientReactionStartedAt !== null) {
         return;
       }
@@ -634,14 +648,15 @@ export default class BestestBuddyPlugin extends Plugin {
       this.ambientReactionStartedAt = Date.now();
     }
 
-    const noteContext = event.notePath && this.data.settings.includeCurrentNoteInDirectReplies
-      ? (this.readCursorExcerpt(event.notePath) ?? await this.readNoteExcerptByPath(event.notePath))
-      : undefined;
-
+    // No await sits between the guard decisions above and this flip, so no
+    // other entry point can slip in while busy is still false.
     this.busy = true;
     this.lastError = null;
     this.refreshViews();
     try {
+      const noteContext = event.notePath && this.data.settings.includeCurrentNoteInDirectReplies
+        ? (this.readCursorExcerpt(event.notePath) ?? await this.readNoteExcerptByPath(event.notePath))
+        : undefined;
       const mood = currentMoodMode(this);
       const sessionMode = currentSessionMode(this);
       const sessionPatterns = detectSessionPatterns(this.store.getRecentEvents(12));
@@ -775,6 +790,9 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   private async fireChattyTick(): Promise<void> {
+    // force=true below skips handleBuddyEvent's busy guard, so overlap with an
+    // in-flight reply (and a clobbered busy flag) must be prevented here.
+    if (this.busy) return;
     if (this.data.settings.frequency !== 'chatty') return;
     if (this.data.muted || !this.data.settings.ambientEnabled) return;
     if (!this.store.getCompanion()) return;
