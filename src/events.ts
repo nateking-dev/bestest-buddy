@@ -41,18 +41,23 @@ export class BuddyEventController {
       }),
     );
 
-    this.plugin.registerEvent(
-      this.plugin.app.vault.on('create', (file) => {
-        if (file instanceof TFile) {
-          void this.plugin.handleBuddyEvent({
-            type: 'new_note_created',
-            at: Date.now(),
-            notePath: file.path,
-            noteTitle: file.basename,
-          });
-        }
-      }),
-    );
+    // Obsidian replays a `create` event for every existing file while the vault
+    // index initializes at startup; subscribing only after layout is ready keeps
+    // the replay from reading as a stampede of freshly created notes.
+    this.plugin.app.workspace.onLayoutReady(() => {
+      this.plugin.registerEvent(
+        this.plugin.app.vault.on('create', (file) => {
+          if (file instanceof TFile) {
+            void this.plugin.handleBuddyEvent({
+              type: 'new_note_created',
+              at: Date.now(),
+              notePath: file.path,
+              noteTitle: file.basename,
+            });
+          }
+        }),
+      );
+    });
 
     this.plugin.registerEvent(
       this.plugin.app.workspace.on('editor-change', (editor, view) => {
