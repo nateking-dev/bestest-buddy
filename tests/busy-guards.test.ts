@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TFile } from 'obsidian';
 import BestestBuddyPlugin from '../src/main';
 import { generateReaction } from '../src/llm';
 import type { BuddyPluginData } from '../src/types';
@@ -35,6 +36,7 @@ function makePlugin(): BestestBuddyPlugin {
     getCursor: () => ({ line: 0, ch: 0 }),
     lineCount: () => 1,
     getLine: () => 'some note text',
+    getSelection: () => '',
   };
   const activeView = { file: { path: 'a.md', basename: 'a' }, editor: fakeEditor };
   const app = {
@@ -42,6 +44,9 @@ function makePlugin(): BestestBuddyPlugin {
       getActiveViewOfType: () => activeView,
       getActiveFile: () => null,
       getLeavesOfType: () => [],
+    },
+    vault: {
+      cachedRead: async () => 'note body',
     },
   };
   // The stub Plugin base class takes (app, manifest) loosely.
@@ -55,11 +60,16 @@ function makePlugin(): BestestBuddyPlugin {
 
 describe('busy guards on concurrent LLM entry points (regression: #29)', () => {
   beforeEach(() => {
+    // Fake timers must be installed before the window stub, so the stub
+    // captures the faked setTimeout rather than the real one.
+    vi.useFakeTimers();
     vi.stubGlobal('window', { setTimeout, clearTimeout, setInterval, clearInterval });
     vi.mocked(generateReaction).mockClear();
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -115,6 +125,44 @@ describe('busy guards on concurrent LLM entry points (regression: #29)', () => {
     await plugin.ensureHatched();
 
     expect(plugin.data.storedCompanion).toBeUndefined();
+    expect(plugin.busy).toBe(true);
+  });
+
+  it('gates other entry points while direct-reply note context is still being read', async () => {
+    const plugin = makePlugin();
+    plugin.data.settings.includeCurrentNoteInDirectReplies = true;
+    plugin.data.recentEvents = [{ type: 'note_opened', at: Date.now() }];
+    // A cachedRead we control: the direct message suspends here mid-flight.
+    let releaseRead!: (text: string) => void;
+    (plugin.app as unknown as { vault: { cachedRead(): Promise<string> } }).vault = {
+      cachedRead: () => new Promise<string>((resolve) => { releaseRead = resolve; }),
+    };
+    const handle = vi.spyOn(plugin, 'handleBuddyEvent').mockResolvedValue(undefined);
+    const file = { path: 'a.md', basename: 'a' } as unknown as TFile;
+
+    const sending = plugin.sendDirectMessage('hello buddy', file);
+
+    // The context read has not resolved, but the request must already be gated.
+    expect(plugin.busy).toBe(true);
+    await (plugin as unknown as { fireChattyTick(): Promise<void> }).fireChattyTick();
+    expect(handle).not.toHaveBeenCalled();
+
+    releaseRead('note body');
+    await sending;
+    expect(generateReaction).toHaveBeenCalledTimes(1);
+    expect(plugin.busy).toBe(false);
+  });
+
+  it('logs but does not react to a forced event that lost the acceptance race', async () => {
+    const plugin = makePlugin();
+    // Another request was accepted while this event's appendEvent await yielded.
+    plugin.busy = true;
+
+    await plugin.handleBuddyEvent({ type: 'pet', at: Date.now() }, true);
+
+    expect(generateReaction).not.toHaveBeenCalled();
+    expect(plugin.data.recentEvents.map((e) => e.type)).toContain('pet');
+    // The in-flight request's busy flag must not be clobbered by our finally.
     expect(plugin.busy).toBe(true);
   });
 });
