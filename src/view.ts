@@ -19,6 +19,7 @@ export class BuddyView extends ItemView {
   private draft = '';
   private shellEl: HTMLElement | null = null;
   private stageEl: HTMLElement | null = null;
+  private bubbleEl: HTMLElement | null = null;
   private rubStartedAt: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: BestestBuddyPlugin) {
@@ -42,6 +43,10 @@ export class BuddyView extends ItemView {
   }
 
   async render(): Promise<void> {
+    if (this.isReadingCannedHover()) {
+      return;
+    }
+
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('bestest-buddy-view');
@@ -84,6 +89,10 @@ export class BuddyView extends ItemView {
   }
 
   updateStage(): void {
+    if (this.isReadingCannedHover()) {
+      return;
+    }
+
     if (!(this.shellEl instanceof HTMLElement) || !(this.stageEl instanceof HTMLElement)) {
       void this.render();
       return;
@@ -91,6 +100,23 @@ export class BuddyView extends ItemView {
 
     const companion = this.plugin.store.getCompanion();
     this.renderStageInto(this.stageEl, companion);
+  }
+
+  /**
+   * The stage is rebuilt on every sprite tick, which would tear the hover
+   * popover out from under the pointer. Hold the rebuild while someone is
+   * reading it; the next tick after they leave catches the panel up.
+   */
+  private isReadingCannedHover(): boolean {
+    const bubble = this.bubbleEl;
+    if (!bubble?.isConnected) {
+      return false;
+    }
+    if (bubble.matches(':hover')) {
+      return true;
+    }
+    const focused = bubble.ownerDocument.activeElement;
+    return focused instanceof Node && bubble.contains(focused);
   }
 
   private renderStage(shell: HTMLElement, companion: Companion | null): void {
@@ -143,9 +169,12 @@ export class BuddyView extends ItemView {
           .join(' '),
       });
       bubble.createSpan({ text: this.plugin.getDisplayedBubble() ?? '' });
+      this.bubbleEl = cannedSource ? bubble : null;
       if (cannedSource) {
         this.renderCannedHover(bubble, cannedSource);
       }
+    } else {
+      this.bubbleEl = null;
     }
 
     if (!companion) {
@@ -344,6 +373,10 @@ export class BuddyView extends ItemView {
    */
   private renderCannedHover(bubble: HTMLElement, source: ReplyFallback): void {
     bubble.setAttr('tabindex', '0');
+    // Renders were held while the pointer was here, so catch up on the way out.
+    bubble.addEventListener('mouseleave', () => {
+      window.setTimeout(() => this.updateStage(), 0);
+    });
     bubble.setAttr('aria-label', describeReplySource(source) ?? 'Canned line.');
 
     const popover = bubble.createDiv({ cls: 'bestest-buddy-cannedPopover' });
