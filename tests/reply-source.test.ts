@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { requestUrl } from 'obsidian';
 import {
-  describeReplySource,
   generateReaction,
   hasApiKey,
   hatchSoul,
   isSettingsFixable,
+  type ReplyFallback,
+  type ReplySource,
 } from '../src/llm';
 import { mergeCompanion, roll } from '../src/lib/buddy/companion';
 import type BestestBuddyPlugin from '../src/main';
@@ -28,6 +29,24 @@ const companion = mergeCompanion(SEED, {
 
 function respondWith(status: number, body: unknown): void {
   vi.mocked(requestUrl).mockResolvedValue({ status, json: body } as never);
+}
+
+/** A body Obsidian cannot parse: the `.json` getter throws, as it does at runtime. */
+function respondWithText(status: number, text: string): void {
+  vi.mocked(requestUrl).mockResolvedValue({
+    status,
+    text,
+    get json(): unknown {
+      throw new SyntaxError('Unexpected token < in JSON');
+    },
+  } as never);
+}
+
+function canned(source: ReplySource): ReplyFallback {
+  if (source.kind !== 'fallback') {
+    throw new Error('expected a canned reply');
+  }
+  return source;
 }
 
 function reactWith(settings: Partial<Record<string, unknown>>) {
@@ -90,7 +109,7 @@ describe('reply source reporting', () => {
     const result = await reactWith({ openAIApiKey: 'sk-test' });
 
     expect(result.source).toMatchObject({ kind: 'fallback', reason: 'auth' });
-    expect(describeReplySource(result.source)).toContain('Incorrect API key provided');
+    expect(canned(result.source).problem).toContain('Incorrect API key provided');
     expect(isSettingsFixable(result.source)).toBe(true);
   });
 
@@ -102,7 +121,7 @@ describe('reply source reporting', () => {
     const result = await reactWith({ openAIApiKey: 'sk-test', model: 'gpt-nope' });
 
     expect(result.source).toMatchObject({ kind: 'fallback', reason: 'model' });
-    expect(describeReplySource(result.source)).toContain('gpt-nope');
+    expect(canned(result.source).problem).toContain('gpt-nope');
   });
 
   it('separates an exhausted quota from ordinary rate limiting', async () => {
@@ -123,7 +142,7 @@ describe('reply source reporting', () => {
     const result = await reactWith({ provider: 'claude', claudeApiKey: 'sk-ant' });
 
     expect(result.source).toMatchObject({ kind: 'fallback', reason: 'auth' });
-    expect(describeReplySource(result.source)).toContain('Claude');
+    expect(canned(result.source).problem).toContain('Claude');
   });
 
   it('reports a usable-looking answer with no content as an empty response', async () => {
@@ -157,16 +176,27 @@ describe('reply source reporting', () => {
     expect(result).toEqual({ text: 'a real line', source: { kind: 'api' } });
   });
 
-  it('describes canned sources and stays silent for API replies', () => {
-    expect(describeReplySource({ kind: 'api' })).toBeNull();
-    expect(describeReplySource(null)).toBeNull();
-    expect(
-      describeReplySource({
-        kind: 'fallback',
-        reason: 'no-api-key',
-        problem: 'No OpenAI API key is set.',
-        fix: 'Add one in settings.',
-      }),
-    ).toBe('No OpenAI API key is set. Add one in settings.');
+  it('reads a non-JSON error body, which is often the only stated cause', async () => {
+    respondWithText(403, '<html><body><h1>403 Forbidden</h1><p>Blocked by proxy</p></body></html>');
+
+    const result = await reactWith({ openAIApiKey: 'sk-test' });
+    const source = canned(result.source);
+
+    expect(source.reason).toBe('auth');
+    expect(source.problem).toContain('403 Forbidden');
+    expect(source.problem).toContain('Blocked by proxy');
+    expect(source.problem).not.toContain('<');
+  });
+
+  it('always offers a problem and a fix to show', async () => {
+    respondWith(500, { error: { message: 'The server had an error' } });
+
+    for (const source of [
+      canned((await reactWith({})).source),
+      canned((await reactWith({ openAIApiKey: 'sk-test' })).source),
+    ]) {
+      expect(source.problem.length).toBeGreaterThan(0);
+      expect(source.fix).toBeTruthy();
+    }
   });
 });

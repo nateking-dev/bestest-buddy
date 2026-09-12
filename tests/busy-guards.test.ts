@@ -11,7 +11,6 @@ vi.mock('../src/llm', () => ({
     source: { kind: 'api' },
   })),
   generateReaction: vi.fn(async () => ({ text: 'stub reaction', source: { kind: 'api' } })),
-  describeReplySource: vi.fn(() => null),
   isSettingsFixable: vi.fn(() => false),
 }));
 

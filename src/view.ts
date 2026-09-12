@@ -7,7 +7,7 @@ import {
 import { renderHat, renderSprite } from './lib/buddy/sprites';
 import { RARITY_COLORS, RARITY_LABELS, type Companion } from './lib/buddy/types';
 import { VIEW_TYPE_BUDDY } from './constants';
-import { describeReplySource, isSettingsFixable, type ReplyFallback } from './llm';
+import { isSettingsFixable, type ReplyFallback } from './llm';
 import {
   describeMood,
   describePatterns,
@@ -19,10 +19,18 @@ export class BuddyView extends ItemView {
   /** Popovers need unique ids so aria-describedby can point at the right one. */
   private static cannedPopoverCount = 0;
 
+  /**
+   * Chromium keeps :hover matched when the window loses focus or a modal opens
+   * without pointer movement, and the panel is frozen for as long as it holds.
+   * Cap the hold well past a comfortable read so a stuck one still recovers.
+   */
+  private static readonly MAX_HOVER_HOLD_MS = 15_000;
+
   private draft = '';
   private shellEl: HTMLElement | null = null;
   private stageEl: HTMLElement | null = null;
   private bubbleEl: HTMLElement | null = null;
+  private hoverHoldStartedAt: number | null = null;
   /** A full render was dropped to protect the hover popover, and still owes work. */
   private deferredRender = false;
   private rubStartedAt: number | null = null;
@@ -44,6 +52,9 @@ export class BuddyView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
+    // Leaving the window or hiding the tab ends a hold the pointer never will.
+    this.registerDomEvent(window, 'blur', () => this.resumeAfterHover(true));
+    this.registerDomEvent(document, 'visibilitychange', () => this.resumeAfterHover(true));
     await this.render();
   }
 
@@ -102,6 +113,13 @@ export class BuddyView extends ItemView {
       return;
     }
 
+    // A render dropped during a hold owes the input and footer, which this path
+    // never touches, so replay it here however the hold ended.
+    if (this.deferredRender) {
+      void this.render();
+      return;
+    }
+
     if (!(this.shellEl instanceof HTMLElement) || !(this.stageEl instanceof HTMLElement)) {
       void this.render();
       return;
@@ -118,29 +136,43 @@ export class BuddyView extends ItemView {
    */
   private isReadingCannedHover(): boolean {
     const bubble = this.bubbleEl;
-    if (!bubble?.isConnected) {
+    const focused = bubble?.ownerDocument.activeElement;
+    const held =
+      !!bubble?.isConnected &&
+      (bubble.matches(':hover') || (focused instanceof Node && bubble.contains(focused)));
+
+    if (!held) {
+      this.hoverHoldStartedAt = null;
       return false;
     }
-    if (bubble.matches(':hover')) {
+
+    if (this.hoverHoldStartedAt === null) {
+      this.hoverHoldStartedAt = Date.now();
       return true;
     }
-    const focused = bubble.ownerDocument.activeElement;
-    return focused instanceof Node && bubble.contains(focused);
+
+    if (Date.now() - this.hoverHoldStartedAt < BuddyView.MAX_HOVER_HOLD_MS) {
+      return true;
+    }
+
+    // Held too long to be a read. Let the panel catch up; a pointer still on the
+    // bubble re-opens the popover on its own, since the reveal is pure CSS.
+    this.hoverHoldStartedAt = null;
+    return false;
   }
 
   /**
    * Run once the bubble is released: a deferred full render first, since the
    * stage-only path never restores the input or footer.
    */
-  private resumeAfterHover(): void {
+  private resumeAfterHover(force = false): void {
     window.setTimeout(() => {
-      if (this.isReadingCannedHover()) {
+      // :hover can stay matched after the window loses focus, so a forced resume
+      // ignores it; otherwise a pointer that came straight back keeps its popover.
+      if (!force && this.isReadingCannedHover()) {
         return;
       }
-      if (this.deferredRender) {
-        void this.render();
-        return;
-      }
+      this.hoverHoldStartedAt = null;
       this.updateStage();
     }, 0);
   }

@@ -163,13 +163,6 @@ function classifyRequestError(plugin: BestestBuddyPlugin, error: unknown): Reply
   );
 }
 
-export function describeReplySource(source: ReplySource | null): string | null {
-  if (!source || source.kind === 'api') {
-    return null;
-  }
-  return source.fix ? `${source.problem} ${source.fix}` : source.problem;
-}
-
 /** True when the selected provider has a key, so replies can reach the API at all. */
 export function hasApiKey(plugin: BestestBuddyPlugin): boolean {
   const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
@@ -301,13 +294,27 @@ function sanitizeReaction(text: string): string {
   return `${compact.slice(0, 157).trimEnd()}…`;
 }
 
-/** An error body is still worth reading even when it is not valid JSON. */
-function safeJson(response: { json?: unknown; text?: string }): unknown {
+/** Obsidian's `.json` getter throws on a body that is not JSON at all. */
+function safeJson(response: { json?: unknown }): unknown {
   try {
     return response.json ?? null;
   } catch {
     return null;
   }
+}
+
+/**
+ * A failing request does not always answer in JSON — a proxy, gateway or
+ * corporate filter replies with an HTML page — and that page is usually the
+ * only thing naming the real cause, so read it rather than reporting nothing.
+ */
+function bodyText(response: { text?: string }): string {
+  const raw = typeof response.text === 'string' ? response.text : '';
+  if (!raw.trim()) {
+    return '';
+  }
+  const stripped = raw.includes('<') ? raw.replace(/<[^>]*>/g, ' ') : raw;
+  return stripped.replace(/\s+/g, ' ').trim();
 }
 
 async function callOpenAI<T extends Record<string, unknown>>(
@@ -354,7 +361,7 @@ async function callOpenAI<T extends Record<string, unknown>>(
 
   if (response.status >= 400) {
     throw new LLMRequestError(
-      json.error?.message ?? '',
+      json.error?.message || bodyText(response),
       response.status,
       json.error?.code ?? json.error?.type ?? null,
     );
@@ -419,7 +426,11 @@ async function callClaude<T extends Record<string, unknown>>(
   };
 
   if (response.status >= 400) {
-    throw new LLMRequestError(json.error?.message ?? '', response.status, json.error?.type ?? null);
+    throw new LLMRequestError(
+      json.error?.message || bodyText(response),
+      response.status,
+      json.error?.type ?? null,
+    );
   }
 
   const toolUse = json.content?.find((block) => block.type === 'tool_use');
