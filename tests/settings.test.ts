@@ -1,15 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { requireApiVersion } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../src/constants';
 import { BuddySettingTab } from '../src/settings';
 import type BestestBuddyPlugin from '../src/main';
 import type { BuddyPluginSettings } from '../src/types';
 
-// The declarative API is guarded by a version check, so the tests drive it.
-vi.mock('obsidian', async () => {
-  const actual = await vi.importActual<Record<string, unknown>>('obsidian');
-  return { ...actual, requireApiVersion: vi.fn(() => true) };
-});
 
 type Definition = ReturnType<BuddySettingTab['getSettingDefinitions']>[number];
 
@@ -57,7 +51,6 @@ describe('declarative settings definitions', () => {
   let harness: ReturnType<typeof fakePlugin>;
 
   beforeEach(() => {
-    vi.mocked(requireApiVersion).mockReturnValue(true);
     harness = fakePlugin();
     tab = new BuddySettingTab(harness.plugin);
   });
@@ -98,17 +91,21 @@ describe('declarative settings definitions', () => {
     expect(harness.refreshViews).toHaveBeenCalledTimes(1);
   });
 
-  it('never calls the 1.13 refresh below the version that has it', async () => {
+  it('refreshes the declarative rows when the running Obsidian offers it', async () => {
     const refreshDomState = vi.spyOn(tab, 'refreshDomState');
 
-    vi.mocked(requireApiVersion).mockReturnValue(false);
     await tab.setControlValue('minimalMode', true);
-    expect(refreshDomState).not.toHaveBeenCalled();
-    expect(harness.save).toHaveBeenCalledTimes(1);
 
-    vi.mocked(requireApiVersion).mockReturnValue(true);
-    await tab.setControlValue('minimalMode', false);
     expect(refreshDomState).toHaveBeenCalledTimes(1);
+  });
+
+  it('still saves on an Obsidian that has no such method', async () => {
+    // Stand in for a build older than 1.13, where the method does not exist.
+    Object.defineProperty(tab, 'refreshDomState', { value: undefined });
+
+    await expect(tab.setControlValue('minimalMode', true)).resolves.toBeUndefined();
+    expect(harness.settings.minimalMode).toBe(true);
+    expect(harness.save).toHaveBeenCalledTimes(1);
   });
 
   it('ignores a key it does not own', async () => {

@@ -342,7 +342,7 @@ export class BuddyView extends ItemView {
 
     const ask = row.createEl('button', {
       cls: 'bestest-buddy-button',
-      text: 'Ask About Note',
+      text: 'Ask about note',
     });
     ask.disabled = !companion || this.plugin.busy;
     ask.onclick = async () => {
