@@ -60,6 +60,10 @@ export class PluginSettingTab {
   constructor(app?: unknown, _plugin?: unknown) {
     this.app = app;
   }
+  // Declarative settings (1.13+) call this after a change to re-evaluate
+  // `visible` and `disabled` predicates.
+  refreshDomState(): void {}
+  update(): void {}
 }
 
 export class Setting {
