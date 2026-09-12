@@ -203,7 +203,7 @@ The buddy uses an LLM for two jobs: generating its **name and personality** at h
 
 **Fallbacks:** if no API key is configured or a request fails, hatching falls back to local name/personality generation and reactions fall back to local rule-based text. The plugin remains fully functional without any API key — responses are just less varied.
 
-**Knowing which you got, and why:** a fallback line is labelled. The speech bubble gets a dashed border and a small `canned` badge, and the panel shows a notice naming the cause and the fix — a rejected key, a model the provider does not recognize (quoted, so you can see the typo), an exhausted quota, rate limiting, a provider outage, an unreachable host, or a response with no usable output. The provider's own error message is included, since that is the part you can act on. Causes you can repair yourself also get an **Open Bestest Buddy settings** shortcut and a one-time notification, so an ambient reaction that fell back while the panel was closed does not go unnoticed.
+**Knowing which you got, and why:** a canned line is marked quietly — the speech bubble gets a dotted outline and nothing else, so running the plugin without a key stays a perfectly good way to use it. Hover the bubble (or focus it with the keyboard) and the reason appears: a rejected key, a model the provider does not recognize (quoted, so you can see the typo), an exhausted quota, rate limiting, a provider outage, an unreachable host, or a response with no usable output. The provider's own error message is included, since that is the part you can act on, and causes you can repair yourself carry an **Open settings** shortcut.
 
 ---
 

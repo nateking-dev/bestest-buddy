@@ -129,22 +129,22 @@ export class BuddyView extends ItemView {
 
     const speechArea = stage.createDiv({ cls: 'bestest-buddy-speechArea' });
     if (this.plugin.currentBubble) {
-      const canned = this.plugin.currentBubbleSource?.kind === 'fallback';
+      const cannedSource =
+        this.plugin.currentBubbleSource?.kind === 'fallback'
+          ? this.plugin.currentBubbleSource
+          : null;
       const bubble = speechArea.createDiv({
         cls: [
           'bestest-buddy-bubble',
           this.plugin.isBubbleFading() ? 'is-fading' : '',
-          canned ? 'is-canned' : '',
+          cannedSource ? 'is-canned' : '',
         ]
           .filter(Boolean)
           .join(' '),
       });
       bubble.createSpan({ text: this.plugin.getDisplayedBubble() ?? '' });
-      if (this.plugin.currentBubbleSource?.kind === 'fallback') {
-        const badge = bubble.createSpan({ cls: 'bestest-buddy-cannedBadge', text: 'canned' });
-        const why = this.cannedTooltip(this.plugin.currentBubbleSource);
-        badge.setAttr('aria-label', why);
-        badge.title = why;
+      if (cannedSource) {
+        this.renderCannedHover(bubble, cannedSource);
       }
     }
 
@@ -314,7 +314,6 @@ export class BuddyView extends ItemView {
       footerText.createDiv({ cls: 'bestest-buddy-status', text: contextStatus });
     }
 
-    this.renderCannedNotice(footerText);
     if (companion) {
       footerText.createDiv({
         cls: 'bestest-buddy-status bestest-buddy-statusSecondary',
@@ -339,37 +338,29 @@ export class BuddyView extends ItemView {
   }
 
   /**
-   * Explain a canned reply where the user can act on it: what failed, what to do,
-   * and a shortcut into the settings that hold the key and model.
+   * A canned line reads as a normal line on purpose: the plugin is meant to be
+   * usable with no API key at all. The dotted bubble is the only standing hint,
+   * and the explanation appears on hover or keyboard focus for anyone who wants it.
    */
-  private renderCannedNotice(container: HTMLElement): void {
-    const source = this.plugin.cannedStatus();
-    if (!source) {
-      return;
-    }
+  private renderCannedHover(bubble: HTMLElement, source: ReplyFallback): void {
+    bubble.setAttr('tabindex', '0');
+    bubble.setAttr('aria-label', describeReplySource(source) ?? 'Canned line.');
 
-    const notice = container.createDiv({ cls: 'bestest-buddy-cannedNotice' });
-    notice.createDiv({
-      cls: 'bestest-buddy-cannedNoticeTitle',
-      text: 'Buddy is using canned lines',
-    });
-    notice.createDiv({ cls: 'bestest-buddy-cannedNoticeProblem', text: source.problem });
+    const popover = bubble.createDiv({ cls: 'bestest-buddy-cannedPopover' });
+    popover.createDiv({ cls: 'bestest-buddy-cannedPopoverTitle', text: 'Canned line, not from the API' });
+    popover.createDiv({ cls: 'bestest-buddy-cannedPopoverProblem', text: source.problem });
     if (source.fix) {
-      notice.createDiv({ cls: 'bestest-buddy-cannedNoticeFix', text: source.fix });
+      popover.createDiv({ cls: 'bestest-buddy-cannedPopoverFix', text: source.fix });
     }
     if (isSettingsFixable(source)) {
-      const open = notice.createEl('button', {
+      const open = popover.createEl('button', {
         cls: 'bestest-buddy-button -small',
-        text: 'Open Bestest Buddy settings',
+        text: 'Open settings',
       });
       open.onclick = () => {
         this.plugin.openSettings();
       };
     }
-  }
-
-  private cannedTooltip(source: ReplyFallback): string {
-    return describeReplySource(source) ?? 'Canned reply.';
   }
 
   private addFact(facts: HTMLElement, label: string, value: string): void {
