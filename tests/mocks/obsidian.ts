@@ -102,6 +102,10 @@ export class TextAreaComponent {
   }
 }
 
+export function requireApiVersion(_version: string): boolean {
+  return true;
+}
+
 export function requestUrl(): never {
   throw new Error('requestUrl is not available in tests');
 }
