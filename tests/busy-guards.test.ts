@@ -13,6 +13,8 @@ vi.mock('../src/llm', () => ({
   generateReaction: vi.fn(async () => ({ text: 'stub reaction', source: { kind: 'api' } })),
   hasApiKey: vi.fn(() => true),
   describeReplySource: vi.fn(() => null),
+  isSettingsFixable: vi.fn(() => false),
+  missingKeyFallback: vi.fn(() => null),
 }));
 
 function pluginData(): BuddyPluginData {

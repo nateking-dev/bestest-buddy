@@ -7,7 +7,7 @@ import {
 import { renderHat, renderSprite } from './lib/buddy/sprites';
 import { RARITY_COLORS, RARITY_LABELS, type Companion } from './lib/buddy/types';
 import { VIEW_TYPE_BUDDY } from './constants';
-import { describeReplySource } from './llm';
+import { describeReplySource, isSettingsFixable, type ReplyFallback } from './llm';
 import {
   describeMood,
   describePatterns,
@@ -140,13 +140,11 @@ export class BuddyView extends ItemView {
           .join(' '),
       });
       bubble.createSpan({ text: this.plugin.getDisplayedBubble() ?? '' });
-      if (canned) {
+      if (this.plugin.currentBubbleSource?.kind === 'fallback') {
         const badge = bubble.createSpan({ cls: 'bestest-buddy-cannedBadge', text: 'canned' });
-        const why = describeReplySource(this.plugin.currentBubbleSource);
-        if (why) {
-          badge.setAttr('aria-label', why);
-          badge.title = why;
-        }
+        const why = this.cannedTooltip(this.plugin.currentBubbleSource);
+        badge.setAttr('aria-label', why);
+        badge.title = why;
       }
     }
 
@@ -316,12 +314,7 @@ export class BuddyView extends ItemView {
       footerText.createDiv({ cls: 'bestest-buddy-status', text: contextStatus });
     }
 
-    const cannedNotice = this.plugin.isUsingCannedReplies()
-      ? 'Canned replies: no API key set, so buddy speaks from built-in lines.'
-      : describeReplySource(this.plugin.lastReplySource);
-    if (cannedNotice) {
-      footerText.createDiv({ cls: 'bestest-buddy-cannedNotice', text: cannedNotice });
-    }
+    this.renderCannedNotice(footerText);
     if (companion) {
       footerText.createDiv({
         cls: 'bestest-buddy-status bestest-buddy-statusSecondary',
@@ -343,6 +336,40 @@ export class BuddyView extends ItemView {
       this.draft = '';
       await this.plugin.sendDirectMessage(message);
     };
+  }
+
+  /**
+   * Explain a canned reply where the user can act on it: what failed, what to do,
+   * and a shortcut into the settings that hold the key and model.
+   */
+  private renderCannedNotice(container: HTMLElement): void {
+    const source = this.plugin.cannedStatus();
+    if (!source) {
+      return;
+    }
+
+    const notice = container.createDiv({ cls: 'bestest-buddy-cannedNotice' });
+    notice.createDiv({
+      cls: 'bestest-buddy-cannedNoticeTitle',
+      text: 'Buddy is using canned lines',
+    });
+    notice.createDiv({ cls: 'bestest-buddy-cannedNoticeProblem', text: source.problem });
+    if (source.fix) {
+      notice.createDiv({ cls: 'bestest-buddy-cannedNoticeFix', text: source.fix });
+    }
+    if (isSettingsFixable(source)) {
+      const open = notice.createEl('button', {
+        cls: 'bestest-buddy-button -small',
+        text: 'Open Bestest Buddy settings',
+      });
+      open.onclick = () => {
+        this.plugin.openSettings();
+      };
+    }
+  }
+
+  private cannedTooltip(source: ReplyFallback): string {
+    return describeReplySource(source) ?? 'Canned reply.';
   }
 
   private addFact(facts: HTMLElement, label: string, value: string): void {

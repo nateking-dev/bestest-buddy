@@ -356,8 +356,40 @@
   opacity: 0.82;
 }
 
+/* A canned reply is a broken pipeline the user can usually repair, so the
+   notice names the cause, the fix, and offers the way in. */
 .bestest-buddy-cannedNotice {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--text-warning, #d69e2e) 34%, var(--buddy-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text-warning, #d69e2e) 7%, transparent);
+  font-size: 11px;
+  line-height: 1.45;
+  justify-items: start;
+}
+
+.bestest-buddy-cannedNoticeTitle {
+  color: var(--text-normal);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bestest-buddy-cannedNoticeProblem {
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+.bestest-buddy-cannedNoticeFix {
   color: var(--text-muted);
+}
+
+.bestest-buddy-button.-small {
+  margin-top: 3px;
+  padding: 4px 8px;
   font-size: 11px;
 }
 

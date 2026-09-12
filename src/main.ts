@@ -4,7 +4,15 @@ import {
   Plugin,
   TFile,
 } from 'obsidian';
-import { hatchSoul, generateReaction, hasApiKey, type ReplySource } from './llm';
+import {
+  generateReaction,
+  hasApiKey,
+  hatchSoul,
+  isSettingsFixable,
+  missingKeyFallback,
+  type ReplyFallback,
+  type ReplySource,
+} from './llm';
 import { VIEW_TYPE_BUDDY } from './constants';
 import { BuddyEventController } from './events';
 import { BuddySettingTab } from './settings';
@@ -278,6 +286,8 @@ export default class BestestBuddyPlugin extends Plugin {
   petStartedAt: number | null = null;
   ambientReactionStartedAt: number | null = null;
 
+  /** Reasons already announced this session, so one bad key is not a repeat alert. */
+  private announcedCannedReasons = new Set<string>();
   private lastPetReactionAt = 0;
   private spriteTimer: number | null = null;
   private bubbleTimer: number | null = null;
@@ -692,6 +702,28 @@ export default class BestestBuddyPlugin extends Plugin {
     }
   }
 
+  /**
+   * Ambient replies can arrive while the panel is closed, so a fixable cause is
+   * announced once per reason. A working reply re-arms the announcement.
+   */
+  private announceCanned(source: ReplySource | null): void {
+    if (source?.kind === 'api') {
+      this.announcedCannedReasons.clear();
+      return;
+    }
+    if (source?.kind !== 'fallback' || !isSettingsFixable(source)) {
+      return;
+    }
+    if (this.announcedCannedReasons.has(source.reason)) {
+      return;
+    }
+    this.announcedCannedReasons.add(source.reason);
+    new Notice(
+      `Bestest Buddy is using canned lines. ${source.problem} ${source.fix ?? ''}`.trim(),
+      12000,
+    );
+  }
+
   clearBubble(): void {
     this.currentBubble = null;
     this.currentBubbleSource = null;
@@ -699,17 +731,30 @@ export default class BestestBuddyPlugin extends Plugin {
   }
 
   /**
-   * True when the next line is guaranteed to be canned because the selected
-   * provider has no key. Transient API failures are reported per reply instead.
+   * The canned-reply problem worth showing right now: whatever made the last
+   * reply canned, or a missing key, which is canned before anything is sent.
    */
-  isUsingCannedReplies(): boolean {
-    return !hasApiKey(this);
+  cannedStatus(): ReplyFallback | null {
+    if (this.lastReplySource?.kind === 'fallback') {
+      return this.lastReplySource;
+    }
+    return hasApiKey(this) ? null : missingKeyFallback(this);
+  }
+
+  /** Open this plugin's own settings tab, the place every fixable cause lives. */
+  openSettings(): void {
+    const setting = (this.app as unknown as {
+      setting?: { open?: () => void; openTabById?: (id: string) => void };
+    }).setting;
+    setting?.open?.();
+    setting?.openTabById?.(this.manifest.id);
   }
 
   private async showBubble(text: string, source: ReplySource | null = null): Promise<void> {
     this.currentBubble = text;
     this.currentBubbleSource = source;
     this.lastReplySource = source ?? this.lastReplySource;
+    this.announceCanned(source);
     this.bubbleShownAt = Date.now();
     await this.store.setLastReactionAt(this.bubbleShownAt);
     this.refreshViews(true);
