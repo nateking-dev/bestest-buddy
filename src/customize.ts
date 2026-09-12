@@ -190,7 +190,6 @@ export class StatsModal extends Modal {
           slider
             .setLimits(1, 100, 1)
             .setValue(current)
-            .setDynamicTooltip()
             .onChange((value) => {
               this.pending[stat] = value;
             }),

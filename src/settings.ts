@@ -1,7 +1,10 @@
-import { PluginSettingTab, Setting, type SettingDefinitionItem } from 'obsidian';
+import { PluginSettingTab, Setting, requireApiVersion, type SettingDefinitionItem } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type BestestBuddyPlugin from './main';
 import type { BuddyPluginSettings, LLMProvider } from './types';
+
+/** The release that added the declarative settings API this tab also implements. */
+const DECLARATIVE_SETTINGS_VERSION = '1.13.0';
 
 type SettingKey = keyof BuddyPluginSettings;
 type ApiKeyField = 'openAIApiKey' | 'claudeApiKey';
@@ -188,8 +191,12 @@ export class BuddySettingTab extends PluginSettingTab {
     if (key === 'minimalMode') {
       this.plugin.refreshViews();
     }
-    // Cheap: re-evaluates the warning rows' visible predicates in place.
-    this.refreshDomState();
+    // Only 1.13+ renders from definitions and can reach this method, but
+    // minAppVersion is 1.7.2, so never call a newer API unguarded.
+    if (requireApiVersion(DECLARATIVE_SETTINGS_VERSION)) {
+      // Cheap: re-evaluates the warning rows' visible predicates in place.
+      this.refreshDomState();
+    }
   }
 
   display(): void {
@@ -310,7 +317,6 @@ export class BuddySettingTab extends PluginSettingTab {
         slider
           .setLimits(0, 100, 1)
           .setValue(this.plugin.data.settings.snarkLevel)
-          .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.data.settings.snarkLevel = value;
             snarkWarning.toggleClass('is-hidden', value <= 90);
