@@ -17,8 +17,14 @@ vi.mock('obsidian', async () => {
   return { ...actual, requestUrl: vi.fn() };
 });
 
-const { bones } = roll('reply-source-seed');
-const companion = mergeCompanion(bones, { name: 'Nib', personality: 'wry duck' });
+const SEED = 'reply-source-seed';
+const { bones } = roll(SEED);
+// mergeCompanion re-rolls from the seed, so pass the seed, not the bones.
+const companion = mergeCompanion(SEED, {
+  name: 'Nib',
+  personality: 'wry duck',
+  hatchedAt: 0,
+});
 
 function respondWith(status: number, body: unknown): void {
   vi.mocked(requestUrl).mockResolvedValue({ status, json: body } as never);

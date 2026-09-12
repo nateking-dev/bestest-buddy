@@ -16,10 +16,15 @@ import {
 import type BestestBuddyPlugin from './main';
 
 export class BuddyView extends ItemView {
+  /** Popovers need unique ids so aria-describedby can point at the right one. */
+  private static cannedPopoverCount = 0;
+
   private draft = '';
   private shellEl: HTMLElement | null = null;
   private stageEl: HTMLElement | null = null;
   private bubbleEl: HTMLElement | null = null;
+  /** A full render was dropped to protect the hover popover, and still owes work. */
+  private deferredRender = false;
   private rubStartedAt: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: BestestBuddyPlugin) {
@@ -44,9 +49,13 @@ export class BuddyView extends ItemView {
 
   async render(): Promise<void> {
     if (this.isReadingCannedHover()) {
+      // Only updateStage() runs on the sprite tick, so a dropped full render
+      // would leave the input and footer stale until an unrelated event.
+      this.deferredRender = true;
       return;
     }
 
+    this.deferredRender = false;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('bestest-buddy-view');
@@ -117,6 +126,23 @@ export class BuddyView extends ItemView {
     }
     const focused = bubble.ownerDocument.activeElement;
     return focused instanceof Node && bubble.contains(focused);
+  }
+
+  /**
+   * Run once the bubble is released: a deferred full render first, since the
+   * stage-only path never restores the input or footer.
+   */
+  private resumeAfterHover(): void {
+    window.setTimeout(() => {
+      if (this.isReadingCannedHover()) {
+        return;
+      }
+      if (this.deferredRender) {
+        void this.render();
+        return;
+      }
+      this.updateStage();
+    }, 0);
   }
 
   private renderStage(shell: HTMLElement, companion: Companion | null): void {
@@ -373,13 +399,17 @@ export class BuddyView extends ItemView {
    */
   private renderCannedHover(bubble: HTMLElement, source: ReplyFallback): void {
     bubble.setAttr('tabindex', '0');
-    // Renders were held while the pointer was here, so catch up on the way out.
-    bubble.addEventListener('mouseleave', () => {
-      window.setTimeout(() => this.updateStage(), 0);
-    });
-    bubble.setAttr('aria-label', describeReplySource(source) ?? 'Canned line.');
+    // Renders are held while this is being read, so catch up on the way out.
+    bubble.addEventListener('mouseleave', () => this.resumeAfterHover());
+    bubble.addEventListener('focusout', () => this.resumeAfterHover());
+
+    const popoverId = `bestest-buddy-canned-${++BuddyView.cannedPopoverCount}`;
+    // Describes rather than labels the bubble: the buddy's own line has to stay
+    // the accessible name, or a screen reader loses the reply itself.
+    bubble.setAttr('aria-describedby', popoverId);
 
     const popover = bubble.createDiv({ cls: 'bestest-buddy-cannedPopover' });
+    popover.id = popoverId;
     popover.createDiv({ cls: 'bestest-buddy-cannedPopoverTitle', text: 'Canned line, not from the API' });
     popover.createDiv({ cls: 'bestest-buddy-cannedPopoverProblem', text: source.problem });
     if (source.fix) {

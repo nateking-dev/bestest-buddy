@@ -272,8 +272,6 @@ export default class BestestBuddyPlugin extends Plugin {
   lastError: string | null = null;
   /** Source of the line in the bubble right now; cleared with the bubble. */
   currentBubbleSource: ReplySource | null = null;
-  /** Source of the most recent line, kept after the bubble fades. */
-  lastReplySource: ReplySource | null = null;
   bubbleShownAt: number | null = null;
   petStartedAt: number | null = null;
   ambientReactionStartedAt: number | null = null;
@@ -710,7 +708,6 @@ export default class BestestBuddyPlugin extends Plugin {
   private async showBubble(text: string, source: ReplySource | null = null): Promise<void> {
     this.currentBubble = text;
     this.currentBubbleSource = source;
-    this.lastReplySource = source ?? this.lastReplySource;
     this.bubbleShownAt = Date.now();
     await this.store.setLastReactionAt(this.bubbleShownAt);
     this.refreshViews(true);
