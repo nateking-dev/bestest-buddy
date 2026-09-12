@@ -4,6 +4,46 @@ import { RARITY_LABELS, STAT_NAMES, type Companion, type CompanionBones } from '
 import type BestestBuddyPlugin from './main';
 import type { BuddyEvent } from './types';
 
+/**
+ * Where a buddy line actually came from. Canned lines are indistinguishable from
+ * API lines in the bubble, so the UI needs this to say which one the user got.
+ */
+export type ReplySource =
+  | { kind: 'api' }
+  | { kind: 'fallback'; reason: FallbackReason };
+
+export type FallbackReason = 'no-api-key' | 'request-failed' | 'empty-response';
+
+export type HatchResult = { name: string; personality: string; source: ReplySource };
+
+export type ReactionResult = { text: string; source: ReplySource };
+
+const FROM_API: ReplySource = { kind: 'api' };
+
+function cannedFrom(reason: FallbackReason): ReplySource {
+  return { kind: 'fallback', reason };
+}
+
+/** True when the selected provider has a key, so replies can reach the API at all. */
+export function hasApiKey(plugin: BestestBuddyPlugin): boolean {
+  const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
+  return provider === 'claude' ? claudeApiKey.trim().length > 0 : openAIApiKey.trim().length > 0;
+}
+
+export function describeReplySource(source: ReplySource | null): string | null {
+  if (!source || source.kind === 'api') {
+    return null;
+  }
+  switch (source.reason) {
+    case 'no-api-key':
+      return 'Canned reply: no API key is set for the selected provider.';
+    case 'request-failed':
+      return 'Canned reply: the API request failed, so a built-in line was used.';
+    default:
+      return 'Canned reply: the API returned nothing usable, so a built-in line was used.';
+  }
+}
+
 function compactStats(stats: Companion['stats']): string {
   return STAT_NAMES.map((stat) => `${stat}:${stats[stat]}`).join(', ');
 }
@@ -368,7 +408,7 @@ function ambientFallbackReaction(params: {
 export async function hatchSoul(
   plugin: BestestBuddyPlugin,
   bones: CompanionBones,
-): Promise<{ name: string; personality: string }> {
+): Promise<HatchResult> {
   try {
     const result = await callLLM<{ name: string; personality: string }>(plugin, {
       schemaName: 'obsidian_buddy_hatch',
@@ -387,12 +427,12 @@ export async function hatchSoul(
     });
 
     if (!result) {
-      return fallbackSoul(bones);
+      return { ...fallbackSoul(bones), source: cannedFrom('no-api-key') };
     }
-    return result;
+    return { ...result, source: FROM_API };
   } catch (error) {
     console.error('Bestest Buddy hatch fallback:', error);
-    return fallbackSoul(bones);
+    return { ...fallbackSoul(bones), source: cannedFrom('request-failed') };
   }
 }
 
@@ -408,7 +448,14 @@ export async function generateReaction(
     sessionMode?: string;
     sessionPatterns?: string[];
   },
-): Promise<string> {
+): Promise<ReactionResult> {
+  const canned = (reason: FallbackReason): ReactionResult => ({
+    text: params.directMessage
+      ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
+      : ambientFallbackReaction(params),
+    source: cannedFrom(reason),
+  });
+
   try {
     const recentEventSummary =
       params.recentEvents && params.recentEvents.length > 0
@@ -452,22 +499,19 @@ export async function generateReaction(
       ].join('\n'),
     });
 
-    if (!result?.reaction) {
-      return params.directMessage
-        ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-        : ambientFallbackReaction(params);
+    if (!result) {
+      return canned('no-api-key');
+    }
+    if (!result.reaction) {
+      return canned('empty-response');
     }
     const reaction = sanitizeReaction(result.reaction);
     if (!reaction) {
-      return params.directMessage
-        ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-        : ambientFallbackReaction(params);
+      return canned('empty-response');
     }
-    return reaction;
+    return { text: reaction, source: FROM_API };
   } catch (error) {
     console.error('Bestest Buddy reaction fallback:', error);
-    return params.directMessage
-      ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-      : ambientFallbackReaction(params);
+    return canned('request-failed');
   }
 }

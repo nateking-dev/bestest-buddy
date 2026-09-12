@@ -7,6 +7,7 @@ import {
 import { renderHat, renderSprite } from './lib/buddy/sprites';
 import { RARITY_COLORS, RARITY_LABELS, type Companion } from './lib/buddy/types';
 import { VIEW_TYPE_BUDDY } from './constants';
+import { describeReplySource } from './llm';
 import {
   describeMood,
   describePatterns,
@@ -128,10 +129,25 @@ export class BuddyView extends ItemView {
 
     const speechArea = stage.createDiv({ cls: 'bestest-buddy-speechArea' });
     if (this.plugin.currentBubble) {
-      speechArea.createDiv({
-        cls: `bestest-buddy-bubble ${this.plugin.isBubbleFading() ? 'is-fading' : ''}`,
-        text: this.plugin.getDisplayedBubble() ?? '',
+      const canned = this.plugin.currentBubbleSource?.kind === 'fallback';
+      const bubble = speechArea.createDiv({
+        cls: [
+          'bestest-buddy-bubble',
+          this.plugin.isBubbleFading() ? 'is-fading' : '',
+          canned ? 'is-canned' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       });
+      bubble.createSpan({ text: this.plugin.getDisplayedBubble() ?? '' });
+      if (canned) {
+        const badge = bubble.createSpan({ cls: 'bestest-buddy-cannedBadge', text: 'canned' });
+        const why = describeReplySource(this.plugin.currentBubbleSource);
+        if (why) {
+          badge.setAttr('aria-label', why);
+          badge.title = why;
+        }
+      }
     }
 
     if (!companion) {
@@ -254,7 +270,7 @@ export class BuddyView extends ItemView {
     });
     reset.onclick = async () => {
       await this.plugin.store.resetCompanion();
-      this.plugin.currentBubble = null;
+      this.plugin.clearBubble();
       this.plugin.refreshViews();
     };
   }
@@ -298,6 +314,13 @@ export class BuddyView extends ItemView {
       footerText.createDiv({ cls: 'bestest-buddy-error', text: this.plugin.lastError });
     } else {
       footerText.createDiv({ cls: 'bestest-buddy-status', text: contextStatus });
+    }
+
+    const cannedNotice = this.plugin.isUsingCannedReplies()
+      ? 'Canned replies: no API key set, so buddy speaks from built-in lines.'
+      : describeReplySource(this.plugin.lastReplySource);
+    if (cannedNotice) {
+      footerText.createDiv({ cls: 'bestest-buddy-cannedNotice', text: cannedNotice });
     }
     if (companion) {
       footerText.createDiv({

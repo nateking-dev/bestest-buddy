@@ -4,7 +4,7 @@ import {
   Plugin,
   TFile,
 } from 'obsidian';
-import { hatchSoul, generateReaction } from './llm';
+import { hatchSoul, generateReaction, hasApiKey, type ReplySource } from './llm';
 import { VIEW_TYPE_BUDDY } from './constants';
 import { BuddyEventController } from './events';
 import { BuddySettingTab } from './settings';
@@ -270,6 +270,10 @@ export default class BestestBuddyPlugin extends Plugin {
   currentSpriteBlink = false;
   busy = false;
   lastError: string | null = null;
+  /** Source of the line in the bubble right now; cleared with the bubble. */
+  currentBubbleSource: ReplySource | null = null;
+  /** Source of the most recent line, kept after the bubble fades. */
+  lastReplySource: ReplySource | null = null;
   bubbleShownAt: number | null = null;
   petStartedAt: number | null = null;
   ambientReactionStartedAt: number | null = null;
@@ -337,7 +341,7 @@ export default class BestestBuddyPlugin extends Plugin {
       name: 'Reset buddy',
       callback: async () => {
         await this.store.resetCompanion();
-        this.currentBubble = null;
+        this.clearBubble();
         this.refreshViews();
       },
     });
@@ -484,10 +488,14 @@ export default class BestestBuddyPlugin extends Plugin {
     try {
       const soul = await hatchSoul(this, this.store.getCompanionBones());
       const companion = await this.store.hatchCompanion({
-        ...soul,
+        name: soul.name,
+        personality: soul.personality,
         hatchedAt: Date.now(),
       });
-      await this.showBubble(`${companion.name} hatched and is now watching this vault.`);
+      await this.showBubble(
+        `${companion.name} hatched and is now watching this vault.`,
+        soul.source,
+      );
     } catch {
       this.lastError = 'Buddy could not hatch right now.';
       new Notice(this.lastError);
@@ -587,7 +595,7 @@ export default class BestestBuddyPlugin extends Plugin {
         ),
         targetFile?.path,
       );
-      await this.showBubble(reaction);
+      await this.showBubble(reaction.text, reaction.source);
     } catch {
       this.lastError = 'Buddy reply failed.';
       new Notice(this.lastError);
@@ -671,7 +679,7 @@ export default class BestestBuddyPlugin extends Plugin {
       });
       await this.store.updateMood(nextMoodForEvent(event, mood));
       await this.store.updateSession(nextSessionForEvent(event, sessionMode), event.notePath);
-      await this.showBubble(reaction);
+      await this.showBubble(reaction.text, reaction.source);
     } catch {
       this.lastError = 'Buddy reaction failed.';
       this.refreshViews();
@@ -684,8 +692,24 @@ export default class BestestBuddyPlugin extends Plugin {
     }
   }
 
-  private async showBubble(text: string): Promise<void> {
+  clearBubble(): void {
+    this.currentBubble = null;
+    this.currentBubbleSource = null;
+    this.bubbleShownAt = null;
+  }
+
+  /**
+   * True when the next line is guaranteed to be canned because the selected
+   * provider has no key. Transient API failures are reported per reply instead.
+   */
+  isUsingCannedReplies(): boolean {
+    return !hasApiKey(this);
+  }
+
+  private async showBubble(text: string, source: ReplySource | null = null): Promise<void> {
     this.currentBubble = text;
+    this.currentBubbleSource = source;
+    this.lastReplySource = source ?? this.lastReplySource;
     this.bubbleShownAt = Date.now();
     await this.store.setLastReactionAt(this.bubbleShownAt);
     this.refreshViews(true);
@@ -696,6 +720,7 @@ export default class BestestBuddyPlugin extends Plugin {
 
     this.bubbleTimer = window.setTimeout(() => {
       this.currentBubble = null;
+      this.currentBubbleSource = null;
       this.bubbleShownAt = null;
       this.refreshViews(true);
     }, BUBBLE_REVEAL_MS + BUBBLE_HOLD_MS + BUBBLE_FADE_MS);

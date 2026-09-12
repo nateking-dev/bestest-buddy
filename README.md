@@ -203,6 +203,8 @@ The buddy uses an LLM for two jobs: generating its **name and personality** at h
 
 **Fallbacks:** if no API key is configured or a request fails, hatching falls back to local name/personality generation and reactions fall back to local rule-based text. The plugin remains fully functional without any API key — responses are just less varied.
 
+**Knowing which you got:** a fallback line is labelled. The speech bubble gets a dashed border and a small `canned` badge (hover it for the reason), and the direct chat footer explains why — no API key for the selected provider, a failed request, or an unusable response. Lines that came from the API carry no badge.
+
 ---
 
 ## Customization

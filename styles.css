@@ -107,6 +107,27 @@
   transform: translateY(-1px);
 }
 
+/* Canned lines come from built-in text, not the API; mark them so they are not
+   mistaken for a model reply. */
+.bestest-buddy-bubble.is-canned {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--text-muted) 45%, var(--buddy-border));
+}
+
+.bestest-buddy-cannedBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 38%, transparent);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  cursor: help;
+}
+
 .bestest-buddy-hearts {
   margin-bottom: 8px;
   justify-self: center;
@@ -333,6 +354,11 @@
 .bestest-buddy-statusSecondary {
   font-size: 11px;
   opacity: 0.82;
+}
+
+.bestest-buddy-cannedNotice {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .bestest-buddy-input.is-disabled textarea,
