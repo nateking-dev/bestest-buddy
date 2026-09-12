@@ -1,10 +1,16 @@
-import { PluginSettingTab, Setting, requireApiVersion, type SettingDefinitionItem } from 'obsidian';
+import { PluginSettingTab, Setting, type SettingDefinitionItem } from 'obsidian';
 import { DEFAULT_SETTINGS } from './constants';
 import type BestestBuddyPlugin from './main';
 import type { BuddyPluginSettings, LLMProvider } from './types';
 
-/** The release that added the declarative settings API this tab also implements. */
-const DECLARATIVE_SETTINGS_VERSION = '1.13.0';
+/**
+ * The part of the 1.13 settings tab this file calls into, declared locally.
+ * Reaching it through our own type keeps the call feature-detected instead of
+ * typed against an API newer than the manifest's minAppVersion.
+ */
+type DeclarativeSettingTab = {
+  refreshDomState?: () => void;
+};
 
 type SettingKey = keyof BuddyPluginSettings;
 type ApiKeyField = 'openAIApiKey' | 'claudeApiKey';
@@ -191,12 +197,9 @@ export class BuddySettingTab extends PluginSettingTab {
     if (key === 'minimalMode') {
       this.plugin.refreshViews();
     }
-    // Only 1.13+ renders from definitions and can reach this method, but
-    // minAppVersion is 1.7.2, so never call a newer API unguarded.
-    if (requireApiVersion(DECLARATIVE_SETTINGS_VERSION)) {
-      // Cheap: re-evaluates the warning rows' visible predicates in place.
-      this.refreshDomState();
-    }
+    // Cheap on 1.13+: re-evaluates the warning rows' visible predicates in
+    // place. Absent below it, where nothing renders from definitions anyway.
+    (this as unknown as DeclarativeSettingTab).refreshDomState?.();
   }
 
   display(): void {
