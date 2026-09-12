@@ -4,6 +4,171 @@ import { RARITY_LABELS, STAT_NAMES, type Companion, type CompanionBones } from '
 import type BestestBuddyPlugin from './main';
 import type { BuddyEvent } from './types';
 
+/**
+ * Where a buddy line actually came from. Canned lines are indistinguishable from
+ * API lines in the bubble, so the UI needs this to say which one the user got —
+ * and, when the API was meant to answer, what stopped it.
+ */
+export type ReplySource = { kind: 'api' } | ReplyFallback;
+
+export type ReplyFallback = {
+  kind: 'fallback';
+  reason: FallbackReason;
+  /** One sentence naming what went wrong, including provider, model and status. */
+  problem: string;
+  /** What the user can do about it, or null when there is nothing to do. */
+  fix: string | null;
+};
+
+export type FallbackReason =
+  | 'no-api-key'
+  | 'auth'
+  | 'model'
+  | 'rate-limit'
+  | 'quota'
+  | 'bad-request'
+  | 'provider-error'
+  | 'network'
+  | 'empty-response';
+
+export type HatchResult = { name: string; personality: string; source: ReplySource };
+
+export type ReactionResult = { text: string; source: ReplySource };
+
+const FROM_API: ReplySource = { kind: 'api' };
+
+/** Reasons the user can clear themselves, which is what earns a settings shortcut. */
+const SETTINGS_REASONS: ReadonlySet<FallbackReason> = new Set<FallbackReason>([
+  'no-api-key',
+  'auth',
+  'model',
+  'bad-request',
+  'empty-response',
+]);
+
+export function isSettingsFixable(source: ReplySource | null): boolean {
+  return source?.kind === 'fallback' && SETTINGS_REASONS.has(source.reason);
+}
+
+/** Carries the provider's own status and error code up to the classifier. */
+class LLMRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null,
+    readonly code: string | null,
+  ) {
+    super(message);
+    this.name = 'LLMRequestError';
+  }
+}
+
+function providerLabel(plugin: BestestBuddyPlugin): string {
+  return plugin.data.settings.provider === 'claude' ? 'Claude' : 'OpenAI';
+}
+
+/** Keep a provider message readable in a sidebar without losing the useful part. */
+function trimProviderMessage(message: string): string {
+  const compact = message.replace(/\s+/g, ' ').trim();
+  return compact.length > 180 ? `${compact.slice(0, 177)}…` : compact;
+}
+
+function fallback(reason: FallbackReason, problem: string, fix: string | null): ReplyFallback {
+  return { kind: 'fallback', reason, problem, fix };
+}
+
+export function missingKeyFallback(plugin: BestestBuddyPlugin): ReplyFallback {
+  const label = providerLabel(plugin);
+  return fallback(
+    'no-api-key',
+    `No ${label} API key is set, so nothing was sent to the API.`,
+    `Add a ${label} API key in Bestest Buddy settings, or switch provider.`,
+  );
+}
+
+function emptyResponseFallback(plugin: BestestBuddyPlugin): ReplyFallback {
+  const label = providerLabel(plugin);
+  return fallback(
+    'empty-response',
+    `${label} answered for model "${plugin.data.settings.model}" but returned nothing usable.`,
+    'Try a different model in Bestest Buddy settings; some models cannot return structured output.',
+  );
+}
+
+/**
+ * Turn a failed request into something the user can act on. Status and the
+ * provider's own error code separate a wrong key from a wrong model from a
+ * problem on the provider's side, which all look identical in the bubble.
+ */
+function classifyRequestError(plugin: BestestBuddyPlugin, error: unknown): ReplyFallback {
+  const label = providerLabel(plugin);
+  const model = plugin.data.settings.model;
+
+  if (!(error instanceof LLMRequestError)) {
+    const detail = error instanceof Error ? trimProviderMessage(error.message) : 'unknown error';
+    return fallback(
+      'network',
+      `Could not reach ${label}: ${detail}`,
+      'Check the network connection, and any VPN, proxy or firewall that blocks the API host.',
+    );
+  }
+
+  const status = error.status;
+  const said = error.message ? ` ${label} said: ${trimProviderMessage(error.message)}` : '';
+  const at = status === null ? '' : ` (HTTP ${status})`;
+
+  if (status === 401 || status === 403 || error.code === 'authentication_error' || error.code === 'permission_error') {
+    return fallback(
+      'auth',
+      `${label} rejected the API key${at}.${said}`,
+      `Check the ${label} API key in Bestest Buddy settings — it may be wrong, revoked, or for a different account.`,
+    );
+  }
+
+  if (status === 404 || error.code === 'not_found_error' || error.code === 'model_not_found') {
+    return fallback(
+      'model',
+      `${label} does not recognize the model "${model}"${at}.${said}`,
+      `Set a model name ${label} actually offers in Bestest Buddy settings.`,
+    );
+  }
+
+  if (error.code === 'insufficient_quota') {
+    return fallback(
+      'quota',
+      `The ${label} account has no remaining quota${at}.${said}`,
+      'Add credit or check billing on the provider account.',
+    );
+  }
+
+  if (status === 429 || error.code === 'rate_limit_error') {
+    return fallback(
+      'rate-limit',
+      `${label} rate-limited the request${at}.${said}`,
+      'Nothing to fix. The next reaction will try again.',
+    );
+  }
+
+  if (status !== null && status >= 500) {
+    return fallback(
+      'provider-error',
+      `${label} had a server error${at}.${said}`,
+      'This is on the provider side. The next reaction will try again.',
+    );
+  }
+
+  return fallback(
+    'bad-request',
+    `${label} rejected the request for model "${model}"${at}.${said}`,
+    `Check the model name and API key in Bestest Buddy settings. A model that cannot return structured output will fail here.`,
+  );
+}
+
+/** True when the selected provider has a key, so replies can reach the API at all. */
+export function hasApiKey(plugin: BestestBuddyPlugin): boolean {
+  const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
+  return provider === 'claude' ? claudeApiKey.trim().length > 0 : openAIApiKey.trim().length > 0;
+}
+
 function compactStats(stats: Companion['stats']): string {
   return STAT_NAMES.map((stat) => `${stat}:${stats[stat]}`).join(', ');
 }
@@ -129,6 +294,29 @@ function sanitizeReaction(text: string): string {
   return `${compact.slice(0, 157).trimEnd()}…`;
 }
 
+/** Obsidian's `.json` getter throws on a body that is not JSON at all. */
+function safeJson(response: { json?: unknown }): unknown {
+  try {
+    return response.json ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A failing request does not always answer in JSON — a proxy, gateway or
+ * corporate filter replies with an HTML page — and that page is usually the
+ * only thing naming the real cause, so read it rather than reporting nothing.
+ */
+function bodyText(response: { text?: string }): string {
+  const raw = typeof response.text === 'string' ? response.text : '';
+  if (!raw.trim()) {
+    return '';
+  }
+  const stripped = raw.includes('<') ? raw.replace(/<[^>]*>/g, ' ') : raw;
+  return stripped.replace(/\s+/g, ' ').trim();
+}
+
 async function callOpenAI<T extends Record<string, unknown>>(
   plugin: BestestBuddyPlugin,
   params: {
@@ -137,8 +325,11 @@ async function callOpenAI<T extends Record<string, unknown>>(
     instructions: string;
     input: string;
   },
-): Promise<T> {
+): Promise<T | null> {
   const response = await requestUrl({
+    // Read error bodies ourselves; requestUrl's own throw discards the
+    // provider's message, which is the only part the user can act on.
+    throw: false,
     url: 'https://api.openai.com/v1/responses',
     method: 'POST',
     headers: {
@@ -160,8 +351,8 @@ async function callOpenAI<T extends Record<string, unknown>>(
     }),
   });
 
-  const json = response.json as {
-    error?: { message?: string };
+  const json = (safeJson(response) ?? {}) as {
+    error?: { message?: string; code?: string; type?: string };
     output?: Array<{
       type?: string;
       content?: Array<{ type?: string; text?: string }>;
@@ -169,7 +360,11 @@ async function callOpenAI<T extends Record<string, unknown>>(
   };
 
   if (response.status >= 400) {
-    throw new Error(json.error?.message ?? `OpenAI request failed with status ${response.status}`);
+    throw new LLMRequestError(
+      json.error?.message || bodyText(response),
+      response.status,
+      json.error?.code ?? json.error?.type ?? null,
+    );
   }
 
   const outputText = json.output
@@ -180,10 +375,14 @@ async function callOpenAI<T extends Record<string, unknown>>(
     .trim();
 
   if (!outputText) {
-    throw new Error('OpenAI response did not include output text.');
+    return null;
   }
 
-  return JSON.parse(outputText) as T;
+  try {
+    return JSON.parse(outputText) as T;
+  } catch {
+    return null;
+  }
 }
 
 async function callClaude<T extends Record<string, unknown>>(
@@ -194,8 +393,10 @@ async function callClaude<T extends Record<string, unknown>>(
     instructions: string;
     input: string;
   },
-): Promise<T> {
+): Promise<T | null> {
   const response = await requestUrl({
+    // See the note in callOpenAI: the provider's error body is the actionable part.
+    throw: false,
     url: 'https://api.anthropic.com/v1/messages',
     method: 'POST',
     headers: {
@@ -219,22 +420,29 @@ async function callClaude<T extends Record<string, unknown>>(
     }),
   });
 
-  const json = response.json as {
-    error?: { message?: string };
+  const json = (safeJson(response) ?? {}) as {
+    error?: { message?: string; type?: string };
     content?: Array<{ type?: string; input?: unknown }>;
   };
 
   if (response.status >= 400) {
-    throw new Error(json.error?.message ?? `Claude request failed with status ${response.status}`);
+    throw new LLMRequestError(
+      json.error?.message || bodyText(response),
+      response.status,
+      json.error?.type ?? null,
+    );
   }
 
   const toolUse = json.content?.find((block) => block.type === 'tool_use');
   if (!toolUse?.input) {
-    throw new Error('Claude response did not include tool use output.');
+    return null;
   }
 
   return toolUse.input as T;
 }
+
+/** Separate "never asked" from "asked and got nothing"; they need different advice. */
+type CallOutcome<T> = { status: 'ok'; value: T } | { status: 'no-key' } | { status: 'empty' };
 
 async function callLLM<T extends Record<string, unknown>>(
   plugin: BestestBuddyPlugin,
@@ -244,16 +452,17 @@ async function callLLM<T extends Record<string, unknown>>(
     instructions: string;
     input: string;
   },
-): Promise<T | null> {
-  const { provider, openAIApiKey, claudeApiKey } = plugin.data.settings;
-
-  if (provider === 'claude') {
-    if (!claudeApiKey.trim()) return null;
-    return callClaude<T>(plugin, params);
+): Promise<CallOutcome<T>> {
+  if (!hasApiKey(plugin)) {
+    return { status: 'no-key' };
   }
 
-  if (!openAIApiKey.trim()) return null;
-  return callOpenAI<T>(plugin, params);
+  const value =
+    plugin.data.settings.provider === 'claude'
+      ? await callClaude<T>(plugin, params)
+      : await callOpenAI<T>(plugin, params);
+
+  return value ? { status: 'ok', value } : { status: 'empty' };
 }
 
 function fallbackSoul(bones: CompanionBones): { name: string; personality: string } {
@@ -368,7 +577,7 @@ function ambientFallbackReaction(params: {
 export async function hatchSoul(
   plugin: BestestBuddyPlugin,
   bones: CompanionBones,
-): Promise<{ name: string; personality: string }> {
+): Promise<HatchResult> {
   try {
     const result = await callLLM<{ name: string; personality: string }>(plugin, {
       schemaName: 'obsidian_buddy_hatch',
@@ -386,13 +595,16 @@ export async function hatchSoul(
       input: `Create an Obsidian writing companion from this identity: ${identitySummary(bones)}.`,
     });
 
-    if (!result) {
-      return fallbackSoul(bones);
+    if (result.status === 'ok') {
+      return { ...result.value, source: FROM_API };
     }
-    return result;
+    return {
+      ...fallbackSoul(bones),
+      source: result.status === 'no-key' ? missingKeyFallback(plugin) : emptyResponseFallback(plugin),
+    };
   } catch (error) {
     console.error('Bestest Buddy hatch fallback:', error);
-    return fallbackSoul(bones);
+    return { ...fallbackSoul(bones), source: classifyRequestError(plugin, error) };
   }
 }
 
@@ -408,7 +620,14 @@ export async function generateReaction(
     sessionMode?: string;
     sessionPatterns?: string[];
   },
-): Promise<string> {
+): Promise<ReactionResult> {
+  const canned = (source: ReplyFallback): ReactionResult => ({
+    text: params.directMessage
+      ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
+      : ambientFallbackReaction(params),
+    source,
+  });
+
   try {
     const recentEventSummary =
       params.recentEvents && params.recentEvents.length > 0
@@ -452,22 +671,19 @@ export async function generateReaction(
       ].join('\n'),
     });
 
-    if (!result?.reaction) {
-      return params.directMessage
-        ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-        : ambientFallbackReaction(params);
+    if (result.status === 'no-key') {
+      return canned(missingKeyFallback(plugin));
     }
-    const reaction = sanitizeReaction(result.reaction);
+    if (result.status === 'empty') {
+      return canned(emptyResponseFallback(plugin));
+    }
+    const reaction = sanitizeReaction(result.value.reaction ?? '');
     if (!reaction) {
-      return params.directMessage
-        ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-        : ambientFallbackReaction(params);
+      return canned(emptyResponseFallback(plugin));
     }
-    return reaction;
+    return { text: reaction, source: FROM_API };
   } catch (error) {
     console.error('Bestest Buddy reaction fallback:', error);
-    return params.directMessage
-      ? buildFallbackReaction(params.companion, 'user_message', params.directMessage)
-      : ambientFallbackReaction(params);
+    return canned(classifyRequestError(plugin, error));
   }
 }

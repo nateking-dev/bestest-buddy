@@ -107,6 +107,89 @@
   transform: translateY(-1px);
 }
 
+/* Canned lines come from built-in text, not the API. The plugin is usable with
+   no key at all, so the only standing mark is a dotted outline; the reason is
+   there for anyone who hovers or focuses the bubble. */
+.bestest-buddy-bubble.is-canned {
+  position: relative;
+  border-style: dotted;
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--text-muted) 62%, var(--buddy-border));
+  cursor: help;
+}
+
+/* A fading bubble must not drag its popover down with it while being read. */
+.bestest-buddy-bubble.is-canned:hover,
+.bestest-buddy-bubble.is-canned:focus-within {
+  opacity: 1;
+}
+
+.bestest-buddy-bubble.is-canned:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--buddy-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.bestest-buddy-cannedPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-width: 100%;
+  max-width: 34ch;
+  padding: 9px 10px;
+  border: 1px solid var(--buddy-border);
+  border-radius: 9px;
+  background: var(--background-secondary);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  color: var(--text-normal);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
+}
+
+/* A bridge over the gap so the pointer can reach the button without closing it. */
+.bestest-buddy-cannedPopover::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 0;
+  right: 0;
+  height: 7px;
+}
+
+.bestest-buddy-bubble.is-canned:hover .bestest-buddy-cannedPopover,
+.bestest-buddy-bubble.is-canned:focus-within .bestest-buddy-cannedPopover {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.bestest-buddy-cannedPopoverTitle {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bestest-buddy-cannedPopoverProblem {
+  overflow-wrap: anywhere;
+}
+
+.bestest-buddy-cannedPopoverFix {
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bestest-buddy-cannedPopover {
+    transition: none;
+  }
+}
+
 .bestest-buddy-hearts {
   margin-bottom: 8px;
   justify-self: center;
@@ -335,6 +418,12 @@
   opacity: 0.82;
 }
 
+.bestest-buddy-button.-small {
+  margin-top: 3px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .bestest-buddy-input.is-disabled textarea,
 .bestest-buddy-input.is-busy textarea {
   background: color-mix(in srgb, var(--background-primary-alt) 86%, var(--background-secondary));
@@ -482,7 +571,9 @@
   box-shadow: inset 0 0 0 1px rgba(47, 133, 90, 0.18);
 }
 
-.bestest-buddy-stage.has-pattern-repeated-long-pauses .bestest-buddy-bubble {
+/* The canned mark outranks this: it says where the line came from, which the
+   session pattern styling must not overwrite. */
+.bestest-buddy-stage.has-pattern-repeated-long-pauses .bestest-buddy-bubble:not(.is-canned) {
   border-style: dashed;
 }
 

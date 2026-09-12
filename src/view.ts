@@ -7,6 +7,7 @@ import {
 import { renderHat, renderSprite } from './lib/buddy/sprites';
 import { RARITY_COLORS, RARITY_LABELS, type Companion } from './lib/buddy/types';
 import { VIEW_TYPE_BUDDY } from './constants';
+import { isSettingsFixable, type ReplyFallback } from './llm';
 import {
   describeMood,
   describePatterns,
@@ -15,9 +16,23 @@ import {
 import type BestestBuddyPlugin from './main';
 
 export class BuddyView extends ItemView {
+  /** Popovers need unique ids so aria-describedby can point at the right one. */
+  private static cannedPopoverCount = 0;
+
+  /**
+   * Chromium keeps :hover matched when the window loses focus or a modal opens
+   * without pointer movement, and the panel is frozen for as long as it holds.
+   * Cap the hold well past a comfortable read so a stuck one still recovers.
+   */
+  private static readonly MAX_HOVER_HOLD_MS = 15_000;
+
   private draft = '';
   private shellEl: HTMLElement | null = null;
   private stageEl: HTMLElement | null = null;
+  private bubbleEl: HTMLElement | null = null;
+  private hoverHoldStartedAt: number | null = null;
+  /** A full render was dropped to protect the hover popover, and still owes work. */
+  private deferredRender = false;
   private rubStartedAt: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: BestestBuddyPlugin) {
@@ -37,10 +52,21 @@ export class BuddyView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
+    // Leaving the window or hiding the tab ends a hold the pointer never will.
+    this.registerDomEvent(window, 'blur', () => this.resumeAfterHover(true));
+    this.registerDomEvent(document, 'visibilitychange', () => this.resumeAfterHover(true));
     await this.render();
   }
 
   async render(): Promise<void> {
+    if (this.isReadingCannedHover()) {
+      // Only updateStage() runs on the sprite tick, so a dropped full render
+      // would leave the input and footer stale until an unrelated event.
+      this.deferredRender = true;
+      return;
+    }
+
+    this.deferredRender = false;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('bestest-buddy-view');
@@ -83,6 +109,17 @@ export class BuddyView extends ItemView {
   }
 
   updateStage(): void {
+    if (this.isReadingCannedHover()) {
+      return;
+    }
+
+    // A render dropped during a hold owes the input and footer, which this path
+    // never touches, so replay it here however the hold ended.
+    if (this.deferredRender) {
+      void this.render();
+      return;
+    }
+
     if (!(this.shellEl instanceof HTMLElement) || !(this.stageEl instanceof HTMLElement)) {
       void this.render();
       return;
@@ -90,6 +127,54 @@ export class BuddyView extends ItemView {
 
     const companion = this.plugin.store.getCompanion();
     this.renderStageInto(this.stageEl, companion);
+  }
+
+  /**
+   * The stage is rebuilt on every sprite tick, which would tear the hover
+   * popover out from under the pointer. Hold the rebuild while someone is
+   * reading it; the next tick after they leave catches the panel up.
+   */
+  private isReadingCannedHover(): boolean {
+    const bubble = this.bubbleEl;
+    const focused = bubble?.ownerDocument.activeElement;
+    const held =
+      !!bubble?.isConnected &&
+      (bubble.matches(':hover') || (focused instanceof Node && bubble.contains(focused)));
+
+    if (!held) {
+      this.hoverHoldStartedAt = null;
+      return false;
+    }
+
+    if (this.hoverHoldStartedAt === null) {
+      this.hoverHoldStartedAt = Date.now();
+      return true;
+    }
+
+    if (Date.now() - this.hoverHoldStartedAt < BuddyView.MAX_HOVER_HOLD_MS) {
+      return true;
+    }
+
+    // Held too long to be a read. Let the panel catch up; a pointer still on the
+    // bubble re-opens the popover on its own, since the reveal is pure CSS.
+    this.hoverHoldStartedAt = null;
+    return false;
+  }
+
+  /**
+   * Run once the bubble is released: a deferred full render first, since the
+   * stage-only path never restores the input or footer.
+   */
+  private resumeAfterHover(force = false): void {
+    window.setTimeout(() => {
+      // :hover can stay matched after the window loses focus, so a forced resume
+      // ignores it; otherwise a pointer that came straight back keeps its popover.
+      if (!force && this.isReadingCannedHover()) {
+        return;
+      }
+      this.hoverHoldStartedAt = null;
+      this.updateStage();
+    }, 0);
   }
 
   private renderStage(shell: HTMLElement, companion: Companion | null): void {
@@ -128,10 +213,26 @@ export class BuddyView extends ItemView {
 
     const speechArea = stage.createDiv({ cls: 'bestest-buddy-speechArea' });
     if (this.plugin.currentBubble) {
-      speechArea.createDiv({
-        cls: `bestest-buddy-bubble ${this.plugin.isBubbleFading() ? 'is-fading' : ''}`,
-        text: this.plugin.getDisplayedBubble() ?? '',
+      const cannedSource =
+        this.plugin.currentBubbleSource?.kind === 'fallback'
+          ? this.plugin.currentBubbleSource
+          : null;
+      const bubble = speechArea.createDiv({
+        cls: [
+          'bestest-buddy-bubble',
+          this.plugin.isBubbleFading() ? 'is-fading' : '',
+          cannedSource ? 'is-canned' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       });
+      bubble.createSpan({ text: this.plugin.getDisplayedBubble() ?? '' });
+      this.bubbleEl = cannedSource ? bubble : null;
+      if (cannedSource) {
+        this.renderCannedHover(bubble, cannedSource);
+      }
+    } else {
+      this.bubbleEl = null;
     }
 
     if (!companion) {
@@ -254,7 +355,7 @@ export class BuddyView extends ItemView {
     });
     reset.onclick = async () => {
       await this.plugin.store.resetCompanion();
-      this.plugin.currentBubble = null;
+      this.plugin.clearBubble();
       this.plugin.refreshViews();
     };
   }
@@ -299,6 +400,7 @@ export class BuddyView extends ItemView {
     } else {
       footerText.createDiv({ cls: 'bestest-buddy-status', text: contextStatus });
     }
+
     if (companion) {
       footerText.createDiv({
         cls: 'bestest-buddy-status bestest-buddy-statusSecondary',
@@ -320,6 +422,40 @@ export class BuddyView extends ItemView {
       this.draft = '';
       await this.plugin.sendDirectMessage(message);
     };
+  }
+
+  /**
+   * A canned line reads as a normal line on purpose: the plugin is meant to be
+   * usable with no API key at all. The dotted bubble is the only standing hint,
+   * and the explanation appears on hover or keyboard focus for anyone who wants it.
+   */
+  private renderCannedHover(bubble: HTMLElement, source: ReplyFallback): void {
+    bubble.setAttr('tabindex', '0');
+    // Renders are held while this is being read, so catch up on the way out.
+    bubble.addEventListener('mouseleave', () => this.resumeAfterHover());
+    bubble.addEventListener('focusout', () => this.resumeAfterHover());
+
+    const popoverId = `bestest-buddy-canned-${++BuddyView.cannedPopoverCount}`;
+    // Describes rather than labels the bubble: the buddy's own line has to stay
+    // the accessible name, or a screen reader loses the reply itself.
+    bubble.setAttr('aria-describedby', popoverId);
+
+    const popover = bubble.createDiv({ cls: 'bestest-buddy-cannedPopover' });
+    popover.id = popoverId;
+    popover.createDiv({ cls: 'bestest-buddy-cannedPopoverTitle', text: 'Canned line, not from the API' });
+    popover.createDiv({ cls: 'bestest-buddy-cannedPopoverProblem', text: source.problem });
+    if (source.fix) {
+      popover.createDiv({ cls: 'bestest-buddy-cannedPopoverFix', text: source.fix });
+    }
+    if (isSettingsFixable(source)) {
+      const open = popover.createEl('button', {
+        cls: 'bestest-buddy-button -small',
+        text: 'Open settings',
+      });
+      open.onclick = () => {
+        this.plugin.openSettings();
+      };
+    }
   }
 
   private addFact(facts: HTMLElement, label: string, value: string): void {

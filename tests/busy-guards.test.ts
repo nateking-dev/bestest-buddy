@@ -5,8 +5,13 @@ import { generateReaction } from '../src/llm';
 import type { BuddyPluginData } from '../src/types';
 
 vi.mock('../src/llm', () => ({
-  hatchSoul: vi.fn(async () => ({ name: 'Stub', personality: 'stubby' })),
-  generateReaction: vi.fn(async () => 'stub reaction'),
+  hatchSoul: vi.fn(async () => ({
+    name: 'Stub',
+    personality: 'stubby',
+    source: { kind: 'api' },
+  })),
+  generateReaction: vi.fn(async () => ({ text: 'stub reaction', source: { kind: 'api' } })),
+  isSettingsFixable: vi.fn(() => false),
 }));
 
 function pluginData(): BuddyPluginData {
